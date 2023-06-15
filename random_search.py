@@ -1,13 +1,12 @@
 import argparse
 import time
 import pandas
-import os
-import json
 from copy import deepcopy
 from utils import *
 import warnings
 warnings.filterwarnings("ignore")
 seed_list = list(range(3407, 10000, 10))
+
 
 def set_seed(seed=3407):
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -51,7 +50,7 @@ for dataset_name in datasets:
 
 results = pandas.DataFrame(columns=columns)
 best_model_configs = {}
-file_knt = None
+file_id = None
 
 for model in models:
     model_result = {'name': model}
@@ -98,18 +97,13 @@ for model in models:
         model_result[dataset_name+'-AUPRC'] = best_tprc
         model_result[dataset_name+'-RecK'] = best_treck
         model_result[dataset_name+'-Time'] = time_cost/(t+1)
-
-    if file_knt is None:
-        file_knt = 0
-        while os.path.exists('results/{}.xlsx'.format(file_knt)):
-            file_knt += 1
     model_result = pandas.DataFrame(model_result, index=[0])
     results = pandas.concat([results, model_result])
-    print(results)
-    print(best_model_configs)
-    results.transpose().to_excel('results/{}.xlsx'.format(file_knt))
 
-with open("results/best_model_configs_{}.json".format(file_knt), 'w') as f:
-    json.dump(best_model_configs, f)
-results.transpose().to_excel('results/{}.xlsx'.format(file_knt))
-print('save to file ID: {}'.format(file_knt))
+    file_id = save_results(results, file_id)
+
+
+
+# with open("results/best_model_configs_{}.json".format(file_knt), 'w') as f:
+#     json.dump(best_model_configs, f)
+# results.transpose().to_excel('results/{}.xlsx'.format(file_knt))

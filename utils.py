@@ -1,11 +1,13 @@
 import random
-import numpy as np
-from detector import *
+from models.detector import *
 from dgl.data.utils import load_graphs
+import os
+import json
+
 
 class Dataset:
-    def __init__(self, name='tfinance'):
-        graph = load_graphs('data/' + name)[0][0]
+    def __init__(self, name='tfinance', prefix='datasets/'):
+        graph = load_graphs(prefix + name)[0][0]
         self.name = name
         self.graph = graph
 
@@ -47,6 +49,17 @@ model_detector_dict = {
     'XGBGraph': XGBGraphDetector,
 }
 
+
+def save_results(results, file_id):
+    if not os.path.exists('results/'):
+        os.mkdir('results/')
+    if file_id is None:
+        file_id = 0
+        while os.path.exists('results/{}.xlsx'.format(file_id)):
+            file_id += 1
+    results.transpose().to_excel('results/{}.xlsx'.format(file_id))
+    print('save to file ID: {}'.format(file_id))
+    return file_id
 
 
 def sample_param(model, dataset, t=0):

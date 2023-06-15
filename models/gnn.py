@@ -36,7 +36,7 @@ class BernConv(nn.Module):
     def __init__(self, orders=2):
         super().__init__()
         self.K = orders
-        self.weight = nn.Parameter(torch.ones(k+1))
+        self.weight = nn.Parameter(torch.ones(orders+1))
 
     def forward(self, graph, feat):
         def unnLaplacian1(feat, D_invsqrt, graph):
@@ -384,7 +384,6 @@ class Discriminator(nn.Module):
         return features
 
 
-
 class DCI(nn.Module):
     def __init__(self, in_feats, h_feats=32, num_classes=2, num_layers=2, mlp_layers=1, dropout_rate=0, **kwargs):
         super().__init__()
@@ -395,9 +394,7 @@ class DCI(nn.Module):
     def forward(self, graph, cluster_info, cluster_num):
         positive = self.encoder(graph, corrupt=False)
         negative = self.encoder(graph, corrupt=True)
-
         loss = 0
-
         for i in range(cluster_num):
             node_idx = cluster_info[i]
 

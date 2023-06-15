@@ -1,8 +1,6 @@
 import argparse
-import random
 import time
-import numpy as np
-from detector import *
+from utils import *
 import pandas
 import os
 import warnings
@@ -76,9 +74,8 @@ for dataset in datasets:
                    'RecK mean', 'RecK std', 'Time']:
         columns.append(dataset+'-'+metric)
 
-
 results = pandas.DataFrame(columns=columns)
-
+file_id = None
 for model in models:
     model_result = {'name': model}
     for dataset_name in datasets:
@@ -105,7 +102,7 @@ for model in models:
             train_config['seed'] = seed
             detector = model_detector_dict[model](train_config, model_config, data)
             st = time.time()
-            print(detector.model)
+            # print(detector.model)
             test_score = detector.train()
             auc_list.append(test_score['AUROC']), pre_list.append(test_score['AUPRC']), rec_list.append(test_score['RECK'])
             ed = time.time()
@@ -120,9 +117,5 @@ for model in models:
         model_result[dataset_name+'-Time'] = time_cost/args.trials
     model_result = pandas.DataFrame(model_result, index=[0])
     results = pandas.concat([results, model_result])
+    file_id = save_results(results, file_id)
     print(results)
-
-file_knt = 0
-while os.path.exists('results/{}_{}.xlsx'.format(file_knt, args.semi_supervised)):
-    file_knt += 1
-results.transpose().to_excel('results/{}_{}.xlsx'.format(file_knt, args.semi_supervised))

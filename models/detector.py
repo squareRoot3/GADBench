@@ -1,11 +1,13 @@
-import sklearn.svm
 from models.gnn import *
-from dataset import *
+from models.attention import *
 from sklearn import svm
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_auc_score, average_precision_score
-from dgl.nn.pytorch.factory import KNNGraph
 from sklearn.cluster import KMeans
+from dgl.nn.pytorch.factory import KNNGraph
+import dgl
+import numpy as np
 
 
 class BaseDetector(object):
@@ -110,7 +112,7 @@ class KNNDetector(BaseDetector):
         k = 5 if 'k' not in self.model_config else self.model_config['k']
         weights = 'uniform' if 'weights' not in self.model_config else self.model_config['weights']
         p = 2 if 'p' not in self.model_config else self.model_config['p']
-        self.model = sklearn.neighbors.KNeighborsClassifier(n_neighbors=k, weights=weights, p=p, n_jobs=32)
+        self.model = KNeighborsClassifier(n_neighbors=k, weights=weights, p=p, n_jobs=32)
 
     def train(self):
         train_X = self.source_graph.ndata['feature'][self.train_mask].cpu().numpy()
