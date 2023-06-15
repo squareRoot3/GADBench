@@ -61,8 +61,11 @@ datasets = ['reddit', 'weibo', 'amazon', 'yelp', 'tfinance',
 models = model_detector_dict.keys()
 
 if args.datasets is not None:
-    st, ed = args.datasets.split('-')
-    datasets = datasets[int(st):int(ed)+1]
+    if '-' in args.datasets:
+        st, ed = args.datasets.split('-')
+        datasets = datasets[int(st):int(ed)+1]
+    else:
+        datasets = [datasets[int(args.datasets)]]
     print('Evaluated Datasets: ', datasets)
 
 if args.models is not None:
