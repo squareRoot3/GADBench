@@ -1,7 +1,5 @@
 import sklearn.svm
-import torch
-from gnn import *
-from attention import *
+from models.gnn import *
 from dataset import *
 from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier
@@ -137,7 +135,7 @@ class XGBODDetector(BaseDetector):
         self.model = XGBOD(n_jobs=32, **model_config)
 
     def train(self):
-        # tofix .cpu() should be removed
+        # tofix .cpu() should be optimized
         train_X = self.source_graph.ndata['feature'][self.train_mask].cpu().numpy()
         train_y = self.source_graph.ndata['label'][self.train_mask].cpu().numpy()
         if self.train_mask.sum() > 100000: # avoid out of time
@@ -240,7 +238,6 @@ class RFDetector(BaseDetector):
 class RFGraphDetector(BaseDetector):
     def __init__(self, train_config, model_config, data):
         super().__init__(train_config, model_config, data)
-        # eval_metric = roc_auc_score if train_config['metric'] == "AUROC" else average_precision_score
         n_estimators = 100 if 'n_estimators' not in model_config else model_config['n_estimators']
         criterion = 'gini' if 'criterion' not in model_config else model_config['criterion']
         max_samples = None if 'max_samples' not in model_config else model_config['max_samples']
@@ -270,7 +267,6 @@ class RFGraphDetector(BaseDetector):
 class GASDetector(BaseDetector):
     def __init__(self, train_config, model_config, data):
         super().__init__(train_config, model_config, data)
-        # gnn = globals()[model_config['model']]
         model_config['in_feats'] = self.data.graph.ndata['feature'].shape[1]
         model_config['mlp_layers'] = 0
         self.model = GCN(**model_config).to(train_config['device'])
@@ -315,9 +311,6 @@ class GASDetector(BaseDetector):
                 self.patience_knt += 1
                 if self.patience_knt > self.train_config['patience']:
                     break
-            # print('Loss {:.4f}, Val AUC {:.4f}, Pre {:.4f}, RecK {:.4f}, test AUC {:.4f}, Pre {:.4f}, RecK {:.4f}'.format(
-            #     loss, val_score['AUROC'], val_score['AUPRC'], val_score['RECK'],
-            #     test_score['AUROC'], test_score['AUPRC'], test_score['RECK']))
         return test_score
 
 
@@ -364,9 +357,6 @@ class KNNGCNDetector(BaseDetector):
                 self.patience_knt += 1
                 if self.patience_knt > self.train_config['patience']:
                     break
-            # print('Loss {:.4f}, Val AUC {:.4f}, Pre {:.4f}, RecK {:.4f}, test AUC {:.4f}, Pre {:.4f}, RecK {:.4f}'.format(
-            #     loss, val_score['AUROC'], val_score['AUPRC'], val_score['RECK'],
-            #     test_score['AUROC'], test_score['AUPRC'], test_score['RECK']))
         return test_score
 
 
@@ -400,7 +390,6 @@ class GHRNDetector(BaseDetector):
 
     def train(self):
         del_ratio = 0.015 if 'del_ratio' not in self.model_config else self.model_config['del_ratio']
-        adj_type = 'sym' if 'adj_type' not in self.model_config else self.model_config['adj_type']
         if del_ratio != 0.:
             graph = self.random_walk_update(del_ratio)
             graph = dgl.add_self_loop(dgl.remove_self_loop(graph))
@@ -437,15 +426,10 @@ class PCGNNDetector(BaseDetector):
         super().__init__(train_config, model_config, data)
         model_config['in_feats'] = self.data.graph.ndata['feature'].shape[1]
         self.model = ChebNet(**model_config).to(train_config['device'])
-        # self.model = BWGNN(**model_config).to(train_config['device'])
 
     def preprocess(self, del_ratio=0.7, add_ratio=0.3, k_max=5, dist='cosine', **kwargs):
         graph = self.source_graph.long()
         features = graph.ndata['feature']
-        # features = (features - features.min(0)[0])/(features.max(0)[0]-features.min(0)[0])
-        # print(features)
-        # graph.ndata['feature'] = features
-        # the choose step: remove edges
         edges = graph.adj().coalesce()
         edges_num = edges.indices().shape[1]
         dd = torch.zeros([edges_num], device=features.device)
@@ -458,8 +442,9 @@ class PCGNNDetector(BaseDetector):
             f1 = features[edges.indices()[0, st:ed]]
             f2 = features[edges.indices()[1, st:ed]]
             dd[st:ed] = (f1 - f2).norm(1, dim=1).detach().clone()
+
+        # the choose step: remove edges
         selected_edges = (dd).topk(int(edges_num * del_ratio)).indices.long()
-        # print(selected_edges)
         graph = dgl.remove_edges(graph, selected_edges)
         selected_nodes = (graph.ndata['label'] == 1) & (graph.ndata['train_mask'] == 1)
 
@@ -498,10 +483,6 @@ class PCGNNDetector(BaseDetector):
                 self.patience_knt = 0
                 self.best_score = val_score[self.train_config['metric']]
                 test_score = self.eval(test_labels, probs[self.test_mask])
-                # print(
-                #     'Loss {:.4f}, Val AUC {:.4f}, Pre {:.4f}, RecK {:.4f}, test AUC {:.4f}, Pre {:.4f}, RecK {:.4f}'.format(
-                #         loss, val_score['AUROC'], val_score['AUPRC'], val_score['RECK'],
-                #         test_score['AUROC'], test_score['AUPRC'], test_score['RECK']))
             else:
                 self.patience_knt += 1
                 if self.patience_knt > self.train_config['patience']:
@@ -543,7 +524,6 @@ class DCIDetector(BaseDetector):
                 kmeans = KMeans(n_clusters=self.num_cluster, random_state=0).fit(emb.detach().cpu().numpy())
                 ss_label = kmeans.labels_
                 self.cluster_info = [list(np.where(ss_label == i)[0]) for i in range(self.num_cluster)]
-        # print('Pre-training done!')
 
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_config['lr'])
         for e in range(self.train_config['epochs']):

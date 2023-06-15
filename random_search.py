@@ -1,13 +1,10 @@
 import argparse
-import random
 import time
-import numpy as np
-from detector import *
 import pandas
 import os
 import json
 from copy import deepcopy
-from hyperparams import *
+from utils import *
 import warnings
 warnings.filterwarnings("ignore")
 seed_list = list(range(3407, 10000, 10))
@@ -22,6 +19,7 @@ def set_seed(seed=3407):
         torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.deterministic = True
 
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--trials', type=int, default=100)
 parser.add_argument('--semi_supervised', type=bool, default=False)
@@ -31,35 +29,6 @@ parser.add_argument('--device', type=str, default='cuda')
 
 args = parser.parse_args()
 
-model_detector_dict = {
-    'MLP': BaseGNNDetector,
-    'KNN': KNNDetector,
-    'SVM': SVMDetector,
-    'RF': RFDetector,
-    'XGBoost': XGBoostDetector,
-    'XGBOD': XGBODDetector,
-
-    'GCN': BaseGNNDetector,
-    'SGC': BaseGNNDetector,
-    'GIN': BaseGNNDetector,
-    'GraphSAGE': BaseGNNDetector,
-    'GAT': BaseGNNDetector,
-    'GT': BaseGNNDetector,
-    'ChebNet': BaseGNNDetector,
-
-    'KNNGCN': KNNGCNDetector,
-    'GAS': GASDetector,
-    'GATSep': BaseGNNDetector,
-    'BernNet': BaseGNNDetector,
-    'AMNet': BaseGNNDetector,
-    'BWGNN': BaseGNNDetector,
-    'GHRN': GHRNDetector,
-    'PCGNN': PCGNNDetector,
-    'DCI': DCIDetector,
-    # '':,
-    'RFGraph': RFGraphDetector,
-    'XGBGraph': XGBGraphDetector,
-}
 
 columns = ['name']
 new_row = {}
@@ -89,8 +58,6 @@ for model in models:
     best_model_configs[model] = {}
     for dataset_name in datasets:
         print('============Dataset {} Model {}=============='.format(dataset_name, model))
-        # if model == 'XGBOD' and dataset_name in ['elliptic', 'dgraphfin']:
-        #     continue
         auc_list, pre_list, rec_list = [], [], []
         set_seed()
         time_cost = 0
@@ -106,9 +73,9 @@ for model in models:
 
         for t in range(args.trials):
             print("Dataset {}, Model {}, Trial {}, Time Cost {:.2f}".format(dataset_name, model, t, time_cost))
-            if time_cost > 3600:  # Stop after 2 hours
+            if time_cost > 86400:  # Stop after 1 day
                 break
-            # try:
+
             model_config = sample_param(model, dataset_name, t)
             detector = model_detector_dict[model](train_config, model_config, data)
             train_config['seed'] = seed_list[t]
@@ -119,20 +86,19 @@ for model in models:
                 print("****current best score****")
                 best_val_score = detector.best_score
                 best_model_config = deepcopy(model_config)
-                best_tauc, best_tpre, best_treck = test_score['AUROC'], test_score['AUPRC'], test_score['RECK']
+                best_troc, best_tprc, best_treck = test_score['AUROC'], test_score['AUPRC'], test_score['RECK']
             ed = time.time()
             time_cost += ed - st
             print("Current Val Best:{:.4f}; Test AUC:{:.4f}, PRC:{:.4f}, RECK:{:.4f}".format(
                 detector.best_score, test_score['AUROC'], test_score['AUPRC'], test_score['RECK']))
-            # except:
-            #     torch.cuda.empty_cache()
 
         print("best_model_config:", best_model_config)
         best_model_configs[model][dataset_name] = deepcopy(best_model_config)
-        model_result[dataset_name+'-AUROC'] = best_tauc
-        model_result[dataset_name+'-AUPRC'] = best_tpre
+        model_result[dataset_name+'-AUROC'] = best_troc
+        model_result[dataset_name+'-AUPRC'] = best_tprc
         model_result[dataset_name+'-RecK'] = best_treck
-        model_result[dataset_name+'-Time'] = time_cost/t
+        model_result[dataset_name+'-Time'] = time_cost/(t+1)
+
     if file_knt is None:
         file_knt = 0
         while os.path.exists('results/{}.xlsx'.format(file_knt)):
