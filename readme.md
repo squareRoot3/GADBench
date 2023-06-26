@@ -1,5 +1,8 @@
 # GADBench: Revisiting and Benchmarking Supervised Graph Anomaly Detection
 
+This is the official implementation of the following paper:
+
+> [GADBench: Revisiting and Benchmarking Supervised Graph Anomaly Detection](https://arxiv.org/abs/2306.12251)
 
 Environment Setup
 ---
