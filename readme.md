@@ -37,7 +37,7 @@ Benchmarking
 
 Benchmark the GCN model on the Reddit dataset with the fully-supervised setting (single trial).
 ```
-python benchmark.py --trial 1 --datasets 0 --model GCN
+python benchmark.py --trial 1 --datasets 0 --models GCN
 ```
 Benchmark all 23 models on all 10 datasets in the semi-supervised setting (10 trials). 
 This reproduces Figure 1 and Table 7 from the paper.
@@ -56,7 +56,7 @@ python benchmark.py --trial 10
 
 Perform a random search of hyperparameters for the GCN model on the Reddit dataset in the fully-supervised setting (100 trials).
 ```
-python random_search.py --trial 100 --datasets 0 --model GCN
+python random_search.py --trial 100 --datasets 0 --models GCN
 ```
 Perform a random search of hyperparameters for all 23 models on all 10 datasets in the fully-supervised setting (100 trials). 
 This reproduces Tables 4 and 9 from the paper.
