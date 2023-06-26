@@ -23,7 +23,7 @@ pip install xgboost pyod scikit-learn simpy
 Dataset Preparation
 ---
 GADBench utilizes 10 different datasets. 
-Download these datasets from the provided [google drive link](https://drive.google.com/drive/folders/1PpNwvZx_YRSCDiHaBUmRIS3x1rZR7fMr?usp=sharing). 
+Download these datasets from the provided [google drive link](https://drive.google.com/file/d/1ZniwNbYBa6TlDnKkyEMxj1ruIqS8G_pp/view?usp=sharing). 
 After downloading, unzip all the files into a folder named dataset within the GADBench directory.
 Additionally, GADBench includes an example dataset named `reddit', which does not require manual downloading.
 
