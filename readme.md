@@ -20,7 +20,7 @@ conda install -c dglteam/label/cu117 dgl
 
 # Install additional dependencies
 conda install pip
-pip install xgboost pyod scikit-learn simpy
+pip install xgboost pyod scikit-learn sympy pandas
 ```
 
 Dataset Preparation
