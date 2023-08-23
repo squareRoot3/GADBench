@@ -26,7 +26,9 @@ pip install xgboost pyod scikit-learn sympy pandas
 Dataset Preparation
 ---
 GADBench utilizes 10 different datasets. 
-Download these datasets from the provided [google drive link](https://drive.google.com/file/d/1ZniwNbYBa6TlDnKkyEMxj1ruIqS8G_pp/view?usp=sharing). 
+Download these datasets from the provided [google drive link](https://drive.google.com/file/d/1txzXrzwBBAOEATXmfKzMUUKaXh6PJeR1/view?usp=sharing). 
+Due to the Copyright of [DGraph-Fin](https://dgraph.xinye.com/introduction) and [Elliptic](https://www.kaggle.com/datasets/ellipticco/elliptic-data-set), the user need to download these datasets by themselves. 
+The script to preprocess DGraph-Fin and Elliptic can be found in `preprocess.inpynb'
 After downloading, unzip all the files into a folder named dataset within the GADBench directory.
 Additionally, GADBench includes an example dataset named `reddit', which does not require manual downloading.
 
