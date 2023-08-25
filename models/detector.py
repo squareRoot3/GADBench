@@ -56,7 +56,7 @@ class BaseDetector(object):
             score['AUPRC'] = average_precision_score(labels, probs)
             labels = np.array(labels)
             k = labels.sum()
-        score['F1_K'] = sum(labels[probs.argsort()[-k:]]) / sum(labels)
+        score['RecK'] = sum(labels[probs.argsort()[-k:]]) / sum(labels)
         return score
 
 
@@ -91,9 +91,9 @@ class BaseGNNDetector(BaseDetector):
                 self.patience_knt = 0
                 self.best_score = val_score[self.train_config['metric']]
                 test_score = self.eval(test_labels, probs[self.test_mask])
-                print('Epoch {}, Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}, test AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}'.format(
-                    e, loss, val_score['AUROC'], val_score['AUPRC'], val_score['F1_K'],
-                    test_score['AUROC'], test_score['AUPRC'], test_score['F1_K']))
+                print('Epoch {}, Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, RecK {:.4f}, test AUC {:.4f}, PRC {:.4f}, RecK {:.4f}'.format(
+                    e, loss, val_score['AUROC'], val_score['AUPRC'], val_score['RecK'],
+                    test_score['AUROC'], test_score['AUPRC'], test_score['RecK']))
             else:
                 self.patience_knt += 1
                 if self.patience_knt > self.train_config['patience']:
@@ -133,9 +133,9 @@ class CAREGNNDetector(BaseDetector):
                 self.patience_knt = 0
                 self.best_score = val_score[self.train_config['metric']]
                 test_score = self.eval(test_labels, probs[self.test_mask])
-                print('Epoch {}, Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}, test AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}'.format(
-                    e, loss, val_score['AUROC'], val_score['AUPRC'], val_score['F1_K'],
-                    test_score['AUROC'], test_score['AUPRC'], test_score['F1_K']))
+                print('Epoch {}, Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, RecK {:.4f}, test AUC {:.4f}, PRC {:.4f}, RecK {:.4f}'.format(
+                    e, loss, val_score['AUROC'], val_score['AUPRC'], val_score['RecK'],
+                    test_score['AUROC'], test_score['AUPRC'], test_score['RecK']))
             else:
                 self.patience_knt += 1
                 if self.patience_knt > self.train_config['patience']:
@@ -175,8 +175,9 @@ class NAGNNDetector(BaseDetector):
                 self.model.eval()
                 logits = self.model(self.source_graph)
             probs = logits.softmax(1)[:, 1]
-            # neighbor averaging
+            # neighbor smoothing via GIN
             if k > 0:
+                # print(knn_g)
                 probs = self.aggregate(knn_g, probs)
             
             val_score = self.eval(val_labels, probs[self.val_mask])
@@ -184,9 +185,9 @@ class NAGNNDetector(BaseDetector):
                 self.patience_knt = 0
                 self.best_score = val_score[self.train_config['metric']]
                 test_score = self.eval(test_labels, probs[self.test_mask])
-                print('Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}, test AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}'.format(
-                    loss, val_score['AUROC'], val_score['AUPRC'], val_score['F1_K'],
-                    test_score['AUROC'], test_score['AUPRC'], test_score['F1_K']))
+                print('Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, RecK {:.4f}, test AUC {:.4f}, PRC {:.4f}, RecK {:.4f}'.format(
+                    loss, val_score['AUROC'], val_score['AUPRC'], val_score['RecK'],
+                    test_score['AUROC'], test_score['AUPRC'], test_score['RecK']))
             else:
                 self.patience_knt += 1
                 if self.patience_knt > self.train_config['patience']:
@@ -249,7 +250,6 @@ class XGBODDetector(BaseDetector):
         self.model = XGBOD(n_jobs=32, **model_config)
 
     def train(self):
-        # tofix .cpu() should be optimized
         train_X = self.source_graph.ndata['feature'][self.train_mask].cpu().numpy()
         train_y = self.source_graph.ndata['label'][self.train_mask].cpu().numpy()
         if self.train_mask.sum() > 100000: # avoid out of time
@@ -538,9 +538,9 @@ class GHRNDetector(BaseDetector):
                 self.patience_knt = 0
                 self.best_score = val_score[self.train_config['metric']]
                 test_score = self.eval(test_labels, probs[self.test_mask])
-                print('Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}, test AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}'.format(
-                    loss, val_score['AUROC'], val_score['AUPRC'], val_score['F1_K'],
-                    test_score['AUROC'], test_score['AUPRC'], test_score['F1_K']))
+                print('Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, RecK {:.4f}, test AUC {:.4f}, PRC {:.4f}, RecK {:.4f}'.format(
+                    loss, val_score['AUROC'], val_score['AUPRC'], val_score['RecK'],
+                    test_score['AUROC'], test_score['AUPRC'], test_score['RecK']))
             else:
                 self.patience_knt += 1
                 if self.patience_knt > self.train_config['patience']:
@@ -673,9 +673,9 @@ class DCIDetector(BaseDetector):
                 self.best_score = val_score[self.train_config['metric']]
                 test_score = self.eval(test_labels, probs[self.test_mask])
                 print(
-                    'Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}, test AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}'.format(
-                        loss, val_score['AUROC'], val_score['AUPRC'], val_score['F1_K'],
-                        test_score['AUROC'], test_score['AUPRC'], test_score['F1_K']))
+                    'Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, RecK {:.4f}, test AUC {:.4f}, PRC {:.4f}, RecK {:.4f}'.format(
+                        loss, val_score['AUROC'], val_score['AUPRC'], val_score['RecK'],
+                        test_score['AUROC'], test_score['AUPRC'], test_score['RecK']))
             else:
                 self.patience_knt += 1
                 if self.patience_knt > self.train_config['patience']:
@@ -815,9 +815,9 @@ class BGNNDetector(BaseDetector):
                 self.patience_knt = 0
                 self.best_score = val_score[self.train_config['metric']]
                 test_score = self.eval(test_labels, probs[self.test_mask])
-                print('Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}, test AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}'.format(
-                    loss, val_score['AUROC'], val_score['AUPRC'], val_score['F1_K'],
-                    test_score['AUROC'], test_score['AUPRC'], test_score['F1_K']))
+                print('Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, RecK {:.4f}, test AUC {:.4f}, PRC {:.4f}, RecK {:.4f}'.format(
+                    loss, val_score['AUROC'], val_score['AUPRC'], val_score['RecK'],
+                    test_score['AUROC'], test_score['AUPRC'], test_score['RecK']))
             else:
                 self.patience_knt += 1
                 if self.patience_knt > self.train_config['patience']:
