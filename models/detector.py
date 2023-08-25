@@ -8,6 +8,10 @@ from sklearn.cluster import KMeans
 from dgl.nn.pytorch.factory import KNNGraph
 import dgl
 import numpy as np
+import pandas as pd
+import itertools
+from catboost import Pool, CatBoostClassifier, CatBoostRegressor, sum_models
+import psutil, os
 
 
 class BaseDetector(object):
@@ -23,13 +27,25 @@ class BaseDetector(object):
         self.test_mask = graph.ndata['test_mask'].bool()
         self.weight = (1 - self.labels[self.train_mask]).sum().item() / self.labels[self.train_mask].sum().item()
         self.source_graph = graph
+        print(train_config['inductive'])
+        if train_config['inductive'] == False:
+            self.train_graph = graph
+            self.val_graph = graph
+        else:
+            self.train_graph = graph.subgraph(self.train_mask)
+            self.val_graph = graph.subgraph(self.train_mask+self.val_mask)
         self.best_score = -1
         self.patience_knt = 0
+        
 
     def train(self):
         pass
 
     def eval(self, labels, probs):
+        # py_process = psutil.Process(os.getpid())
+        # print(f"CPU Memory Usage: {py_process.memory_info().rss / (1024 ** 3)} GB")
+        # print(f"GPU Memory Usage: {torch.cuda.memory_reserved() / (1024 ** 3)} GB")
+
         score = {}
         with torch.no_grad():
             if torch.is_tensor(labels):
@@ -40,7 +56,7 @@ class BaseDetector(object):
             score['AUPRC'] = average_precision_score(labels, probs)
             labels = np.array(labels)
             k = labels.sum()
-        score['RECK'] = sum(labels[probs.argsort()[-k:]]) / sum(labels)
+        score['F1_K'] = sum(labels[probs.argsort()[-k:]]) / sum(labels)
         return score
 
 
@@ -57,6 +73,98 @@ class BaseGNNDetector(BaseDetector):
                                                 self.labels[self.val_mask], self.labels[self.test_mask]
         for e in range(self.train_config['epochs']):
             self.model.train()
+            logits = self.model(self.train_graph)
+            loss = F.cross_entropy(logits[self.train_graph.ndata['train_mask']], train_labels,
+                                   weight=torch.tensor([1., self.weight], device=self.labels.device))
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            if self.model_config['drop_rate'] > 0 or self.train_config['inductive']:
+                self.model.eval()
+                logits = self.model(self.val_graph)
+            probs = logits.softmax(1)[:, 1]
+            val_score = self.eval(val_labels, probs[self.val_graph.ndata['val_mask']])
+            if val_score[self.train_config['metric']] > self.best_score:
+                if self.train_config['inductive']:
+                    logits = self.model(self.source_graph)
+                    probs = logits.softmax(1)[:, 1]
+                self.patience_knt = 0
+                self.best_score = val_score[self.train_config['metric']]
+                test_score = self.eval(test_labels, probs[self.test_mask])
+                print('Epoch {}, Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}, test AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}'.format(
+                    e, loss, val_score['AUROC'], val_score['AUPRC'], val_score['F1_K'],
+                    test_score['AUROC'], test_score['AUPRC'], test_score['F1_K']))
+            else:
+                self.patience_knt += 1
+                if self.patience_knt > self.train_config['patience']:
+                    break
+        return test_score
+
+
+class CAREGNNDetector(BaseDetector):
+    def __init__(self, train_config, model_config, data):
+        super().__init__(train_config, model_config, data)
+        model_config['in_feats'] = self.data.graph.ndata['feature'].shape[1]
+        self.model = GraphConsis(**model_config).to(train_config['device'])
+
+    def train(self):
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_config['lr'])
+        train_labels, val_labels, test_labels = self.labels[self.train_mask], \
+                                                self.labels[self.val_mask], self.labels[self.test_mask]
+        rl_idx = torch.nonzero(self.train_mask & self.labels, as_tuple=False).squeeze(1)
+        for e in range(self.train_config['epochs']):
+            self.model.train()
+            logits = self.model(self.train_graph, e)
+            loss = F.cross_entropy(logits[self.train_graph.ndata['train_mask']], train_labels,
+                                   weight=torch.tensor([1., self.weight], device=self.labels.device))
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            self.model.RLModule(self.train_graph, e, rl_idx)
+            if self.model_config['drop_rate'] > 0 or self.train_config['inductive']:
+                self.model.eval()
+                logits = self.model(self.val_graph)
+            probs = logits.softmax(1)[:, 1]
+            val_score = self.eval(val_labels, probs[self.val_graph.ndata['val_mask']])
+            if val_score[self.train_config['metric']] > self.best_score:
+                if self.train_config['inductive']:
+                    logits = self.model(self.source_graph)
+                    probs = logits.softmax(1)[:, 1]
+                self.patience_knt = 0
+                self.best_score = val_score[self.train_config['metric']]
+                test_score = self.eval(test_labels, probs[self.test_mask])
+                print('Epoch {}, Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}, test AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}'.format(
+                    e, loss, val_score['AUROC'], val_score['AUPRC'], val_score['F1_K'],
+                    test_score['AUROC'], test_score['AUPRC'], test_score['F1_K']))
+            else:
+                self.patience_knt += 1
+                if self.patience_knt > self.train_config['patience']:
+                    break
+        return test_score
+
+
+class NAGNNDetector(BaseDetector):
+    def __init__(self, train_config, model_config, data):
+        super().__init__(train_config, model_config, data)
+        # gnn = globals()[model_config['model']]
+        model_config['in_feats'] = self.data.graph.ndata['feature'].shape[1]
+        self.model = BWGNN(**model_config).to(train_config['device'])
+        self.aggregate = dglnn.GINConv(None, activation=None, init_eps=0,
+                                 aggregator_type='mean').to(self.train_config['device'])
+
+    def train(self):
+        k = 5 if 'k' not in self.model_config else self.model_config['k']
+        dist = 'cosine' if 'dist' not in self.model_config else self.model_config['dist']
+        feat = self.data.graph.ndata['feature'].to(self.train_config['device'])
+        if k > 0:
+            knn_graph = KNNGraph(k)
+            knn_g = knn_graph(feat, algorithm="bruteforce-sharemem", dist=dist)
+        
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_config['lr'])
+        train_labels, val_labels, test_labels = self.labels[self.train_mask], \
+                                                self.labels[self.val_mask], self.labels[self.test_mask]
+        for e in range(self.train_config['epochs']):
+            self.model.train()
             logits = self.model(self.source_graph)
             loss = F.cross_entropy(logits[self.train_mask], train_labels,
                                    weight=torch.tensor([1., self.weight], device=self.labels.device))
@@ -67,14 +175,18 @@ class BaseGNNDetector(BaseDetector):
                 self.model.eval()
                 logits = self.model(self.source_graph)
             probs = logits.softmax(1)[:, 1]
+            # neighbor averaging
+            if k > 0:
+                probs = self.aggregate(knn_g, probs)
+            
             val_score = self.eval(val_labels, probs[self.val_mask])
             if val_score[self.train_config['metric']] > self.best_score:
                 self.patience_knt = 0
                 self.best_score = val_score[self.train_config['metric']]
                 test_score = self.eval(test_labels, probs[self.test_mask])
-                # print('Loss {:.4f}, Val AUC {:.4f}, Pre {:.4f}, RecK {:.4f}, test AUC {:.4f}, Pre {:.4f}, RecK {:.4f}'.format(
-                #     loss, val_score['AUROC'], val_score['AUPRC'], val_score['RECK'],
-                #     test_score['AUROC'], test_score['AUPRC'], test_score['RECK']))
+                print('Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}, test AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}'.format(
+                    loss, val_score['AUROC'], val_score['AUPRC'], val_score['F1_K'],
+                    test_score['AUROC'], test_score['AUPRC'], test_score['F1_K']))
             else:
                 self.patience_knt += 1
                 if self.patience_knt > self.train_config['patience']:
@@ -189,7 +301,14 @@ class XGBGraphDetector(BaseDetector):
         eval_metric = roc_auc_score if train_config['metric'] == "AUROC" else average_precision_score
         self.model = xgb.XGBClassifier(tree_method='gpu_hist', eval_metric=eval_metric, verbose=2, **model_config)
         gnn = GIN_noparam(**model_config).to(self.source_graph.device)
-        self.source_graph.ndata['feature'] = gnn(self.source_graph)
+        new_feat = gnn(self.source_graph)
+        if self.train_config['inductive'] == True:
+            new_feat[self.train_mask] = gnn(self.source_graph.subgraph(self.train_mask))
+            val_graph = self.source_graph.subgraph(self.train_mask+self.val_mask)
+            new_feat[self.val_mask] = gnn(val_graph)[val_graph.ndata['val_mask']]
+            # feature[self.test_mask] = gnn(self.source_graph)[self.test_mask]
+        self.source_graph.ndata['feature'] = new_feat
+
 
     def train(self):
         train_X = self.source_graph.ndata['feature'][self.train_mask].cpu().numpy()
@@ -247,7 +366,13 @@ class RFGraphDetector(BaseDetector):
         self.model = RandomForestClassifier(n_jobs=32, n_estimators=n_estimators, criterion=criterion,
                                             max_samples=max_samples, max_features=max_features)
         gnn = GIN_noparam(**model_config).to(self.source_graph.device)
-        self.source_graph.ndata['feature'] = gnn(self.source_graph)
+        new_feat = gnn(self.source_graph)
+        if self.train_config['inductive'] == True:
+            new_feat[self.train_mask] = gnn(self.source_graph.subgraph(self.train_mask))
+            val_graph = self.source_graph.subgraph(self.train_mask+self.val_mask)
+            new_feat[self.val_mask] = gnn(val_graph)[val_graph.ndata['val_mask']]
+            # feature[self.test_mask] = gnn(self.source_graph)[self.test_mask]
+        self.source_graph.ndata['feature'] = new_feat
 
     def train(self):
         train_X = self.source_graph.ndata['feature'][self.train_mask].cpu().numpy()
@@ -413,9 +538,9 @@ class GHRNDetector(BaseDetector):
                 self.patience_knt = 0
                 self.best_score = val_score[self.train_config['metric']]
                 test_score = self.eval(test_labels, probs[self.test_mask])
-                print('Loss {:.4f}, Val AUC {:.4f}, Pre {:.4f}, RecK {:.4f}, test AUC {:.4f}, Pre {:.4f}, RecK {:.4f}'.format(
-                    loss, val_score['AUROC'], val_score['AUPRC'], val_score['RECK'],
-                    test_score['AUROC'], test_score['AUPRC'], test_score['RECK']))
+                print('Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}, test AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}'.format(
+                    loss, val_score['AUROC'], val_score['AUPRC'], val_score['F1_K'],
+                    test_score['AUROC'], test_score['AUPRC'], test_score['F1_K']))
             else:
                 self.patience_knt += 1
                 if self.patience_knt > self.train_config['patience']:
@@ -548,11 +673,162 @@ class DCIDetector(BaseDetector):
                 self.best_score = val_score[self.train_config['metric']]
                 test_score = self.eval(test_labels, probs[self.test_mask])
                 print(
-                    'Loss {:.4f}, Val AUC {:.4f}, Pre {:.4f}, RecK {:.4f}, test AUC {:.4f}, Pre {:.4f}, RecK {:.4f}'.format(
-                        loss, val_score['AUROC'], val_score['AUPRC'], val_score['RECK'],
-                        test_score['AUROC'], test_score['AUPRC'], test_score['RECK']))
+                    'Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}, test AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}'.format(
+                        loss, val_score['AUROC'], val_score['AUPRC'], val_score['F1_K'],
+                        test_score['AUROC'], test_score['AUPRC'], test_score['F1_K']))
             else:
                 self.patience_knt += 1
                 if self.patience_knt > self.train_config['patience']:
                     break
+        return test_score
+    
+    
+class BGNNDetector(BaseDetector):
+    def __init__(self, train_config, model_config, data):
+        super().__init__(train_config, model_config, data)
+        # gnn = globals()[model_config['model']]
+    
+        self.depth = 6 if 'depth' not in model_config else model_config['depth']
+        self.iter_per_epoch = 10 if 'iter_per_epoch' not in model_config else model_config['iter_per_epoch']
+        self.gbdt_alpha = 1 if 'gbdt_alpha' not in model_config else model_config['gbdt_alpha']
+        self.gbdt_lr = 0.1 if 'gbdt_lr' not in model_config else model_config['gbdt_lr']
+        self.train_non_gbdt = False if 'train_non_gbdt' not in model_config else model_config['train_non_gbdt']
+        self.only_gbdt = False if 'only_gdbt' not in model_config else model_config['only_gdbt']
+        self.normalize_features = False if 'nomarlize_features' not in model_config else model_config['normalize_features']
+
+        if not self.only_gbdt:
+            model_config['in_feats'] = self.source_graph.ndata['feature'].shape[1] + self.labels.unique().shape[0]
+        else:
+            model_config['in_feats'] = self.labels.unique().size(0)
+
+        self.model = GCN(**model_config).to(train_config['device'])
+        self.gbdt_model = None
+    
+    def preprocess(self):
+        gbdt_X_train = pd.DataFrame(self.source_graph.ndata['feature'][self.train_mask].cpu().numpy())
+        gbdt_y_train = pd.DataFrame(self.labels[self.train_mask].cpu().numpy()).astype(float)
+
+        raw_X = pd.DataFrame(self.source_graph.ndata['feature'].clone().cpu().numpy())
+        encoded_X = self.source_graph.ndata['feature'].clone()
+        if not self.only_gbdt and self.normalize_features:
+            min_vals, _ = torch.min(encoded_X[self.train_mask], dim=0, keepdim=True)
+            max_vals, _ = torch.max(encoded_X[self.train_mask], dim=0, keepdim=True)
+            encoded_X[self.train_mask] = (encoded_X[self.train_mask] - min_vals) / (max_vals - min_vals)
+            encoded_X[self.val_mask | self.test_mask] = (encoded_X[self.val_mask | self.test_mask] - min_vals) / (max_vals - min_vals)
+
+            if encoded_X.isnan().any():
+                row, col = torch.where(encoded_X.isnan())
+                encoded_X[row, col] = self.source_graph.ndata['feature'][row, col]
+            
+            if encoded_X.isinf().any():
+                row, col = torch.where(encoded_X.isinf())
+                encoded_X[row, col] = self.source_graph.ndata['feature'][row, col]
+
+        node_features = torch.empty(encoded_X.shape[0], self.model_config['in_feats'], requires_grad=True, device=self.labels.device)
+        if not self.only_gbdt:
+            node_features.data[:, :-2] = self.source_graph.ndata['feature'].clone()
+        self.source_graph.ndata['feature'] = node_features
+
+        return gbdt_X_train, gbdt_y_train, raw_X, encoded_X
+
+
+    def train_gbdt(self, gbdt_X_train, gbdt_y_train, epoch):
+        pool = Pool(gbdt_X_train, gbdt_y_train)
+        if epoch == 0:
+            catboost_model_obj = CatBoostClassifier
+            catboost_loss_fn = 'MultiClass'
+        else:
+            catboost_model_obj = CatBoostRegressor
+            catboost_loss_fn = 'MultiRMSE'
+        
+        epoch_gbdt_model = catboost_model_obj(iterations=self.iter_per_epoch,
+                                              depth=self.depth,
+                                              learning_rate=self.gbdt_lr,
+                                              loss_function=catboost_loss_fn,
+                                              random_seed=0,
+                                              nan_mode='Min')
+        epoch_gbdt_model.fit(pool, verbose=False)
+        
+        if epoch == 0:
+            self.base_gbdt = epoch_gbdt_model
+        else:
+            if self.gbdt_model is None:
+                self.gbdt_model = epoch_gbdt_model
+            else:
+                self.gbdt_model = sum_models([self.gbdt_model, epoch_gbdt_model], weights=[1, self.gbdt_alpha])
+                # self.gbdt_model = self.append_gbdt_model(epoch_gbdt_model, weights=[1, self.gbdt_alpha])
+
+
+    def update_node_features(self, X, encoded_X):
+        predictions = self.base_gbdt.predict_proba(X)
+        # predictions = self.base_gbdt.predict(X, prediction_type='RawFormulaVal')
+        if self.gbdt_model is not None:
+            predictions_after_one = self.gbdt_model.predict(X)
+            predictions += predictions_after_one
+
+        predictions = torch.tensor(predictions, device=self.labels.device)
+        node_features = self.source_graph.ndata['feature']
+        if not self.only_gbdt:
+            if self.train_non_gbdt:
+                # predictions = np.append(node_features.detach().cpu().data[:, :-self.out_dim], predictions,
+                #                         axis=1)  # append updated X to prediction
+                predictions = torch.concat((node_features.detach().data[:, :-2], predictions), dim=1)
+            else:
+                # predictions = np.append(encoded_X, predictions, axis=1)  # append X to prediction
+                predictions = torch.concat((encoded_X, predictions), dim=1)
+
+        # predictions = torch.from_numpy(predictions).to(self.device)
+
+        node_features.data = predictions.float().data
+
+    def train(self):
+        gbdt_X_train, gbdt_y_train, raw_X, encoded_X = self.preprocess()
+        optimizer = torch.optim.Adam(
+            itertools.chain(*[self.model.parameters(), [self.source_graph.ndata['feature']]]), lr=self.model_config['lr']
+        )
+        train_labels, val_labels, test_labels = self.labels[self.train_mask], \
+                                                self.labels[self.val_mask], self.labels[self.test_mask]
+
+        for e in range(self.train_config['epochs']):
+            self.train_gbdt(gbdt_X_train, gbdt_y_train, e)
+            self.update_node_features(raw_X, encoded_X)
+            node_features_before = self.source_graph.ndata['feature'].clone()
+            
+            self.model.train()
+            for _ in range(self.iter_per_epoch):
+                logits = self.model(self.source_graph)
+                loss = F.cross_entropy(logits[self.train_mask], train_labels,
+                                   weight=torch.tensor([1., self.weight], device=self.labels.device))
+                optimizer.zero_grad()
+                # if self.source_graph.ndata['feature'].isnan().any():
+                #     print('g')
+                loss.backward()
+                optimizer.step()
+                # if self.source_graph.ndata['feature'].isnan().any():
+                #     print('g')
+
+            self.model.eval()
+            logits = self.model(self.source_graph)
+            probs = logits.softmax(1)[:, 1]
+            val_score = self.eval(val_labels, probs[self.val_mask])
+            if val_score[self.train_config['metric']] > self.best_score:
+                self.patience_knt = 0
+                self.best_score = val_score[self.train_config['metric']]
+                test_score = self.eval(test_labels, probs[self.test_mask])
+                print('Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}, test AUC {:.4f}, PRC {:.4f}, F1_K {:.4f}'.format(
+                    loss, val_score['AUROC'], val_score['AUPRC'], val_score['F1_K'],
+                    test_score['AUROC'], test_score['AUPRC'], test_score['F1_K']))
+            else:
+                self.patience_knt += 1
+                if self.patience_knt > self.train_config['patience']:
+                    break
+            
+            # Update GBDT target
+            gbdt_y_train = (self.source_graph.ndata['feature'] - node_features_before)[self.train_mask, -2:].detach().cpu().numpy()
+            
+            # Check if update is frozen
+            if np.isclose(gbdt_y_train.sum(), 0.):
+                print('Nodes do not change anymore. Stopping...')
+                break
+        
         return test_score
