@@ -28,8 +28,10 @@ Dataset Preparation
 GADBench utilizes 10 different datasets. 
 Download these datasets from the provided [google drive link](https://drive.google.com/file/d/1txzXrzwBBAOEATXmfKzMUUKaXh6PJeR1/view?usp=sharing). 
 Due to the Copyright of [DGraph-Fin](https://dgraph.xinye.com/introduction) and [Elliptic](https://www.kaggle.com/datasets/ellipticco/elliptic-data-set), you need to download these datasets by yourself. 
-The script to preprocess DGraph-Fin and Elliptic can be found in `datasets/preprocess.inpynb`
+
+The script to preprocess DGraph-Fin and Elliptic can be found in `datasets/preprocess.inpynb`.
 After downloading, unzip all the files into a folder named dataset within the GADBench directory.
+
 Additionally, GADBench includes an example dataset named `reddit', which does not require manual downloading.
 
 Benchmarking
@@ -41,17 +43,22 @@ Benchmark the GCN model on the Reddit dataset with the fully-supervised setting 
 ```
 python benchmark.py --trial 1 --datasets 0 --models GCN
 ```
-Benchmark all 23 models on all 10 datasets in the semi-supervised setting (10 trials). 
-This reproduces Figure 1 and Table 7 from the paper.
+Benchmark GIN and BWGNN on all 10 datasets in the semi-supervised setting (10 trials). 
 ```
-python benchmark.py --trial 10 --semi_supervised 1
+python benchmark.py --trial 10 --models GIN-BWGNN --semi_supervised 1 
 ```
-Benchmark all 23 models on all 10 datasets in the fully-supervised setting (10 trials). 
-This reproduces Figure 1 and Table 8 from the paper.
+Benchmark 26 models on all 10 datasets in the fully-supervised setting (10 trials). 
 ```
 python benchmark.py --trial 10
 ```
-
+Benchmark severl models in the inductive setting
+```
+python benchmark.py --datasets 5,8 --models GAT-GraphSAGE-XGBGraph
+```
+Benchmark CAREGNN and GraphConsis on heterogeneous graph datasets 
+```
+python benchmark.py --datasets 10,11 --models CAREGNN-GraphConsis
+```
 
 ### Using Optimal Hyperparameters through Random Search
 
@@ -60,8 +67,7 @@ Perform a random search of hyperparameters for the GCN model on the Reddit datas
 ```
 python random_search.py --trial 100 --datasets 0 --models GCN
 ```
-Perform a random search of hyperparameters for all 23 models on all 10 datasets in the fully-supervised setting (100 trials). 
-This reproduces Tables 4 and 9 from the paper.
+Perform a random search of hyperparameters for all 26 models on all 10 datasets in the fully-supervised setting (100 trials). 
 
 ```
 python random_search.py --trial 100
