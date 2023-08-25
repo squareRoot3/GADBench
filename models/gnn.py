@@ -234,6 +234,7 @@ class GIN_noparam(nn.Module):
         for i in range(self.num_layers):
             h = self.gnn(graph, h)
             h_final = torch.cat([h_final, h], -1)
+        print(h_final)
         return h_final
 
 
@@ -321,7 +322,7 @@ class SGC(nn.Module):
     def forward(self, graph):
         h = graph.ndata['feature']
         h = self.dropout(h)
-        h = self.sgc(graph,h)
+        h = self.sgc(graph, h)
         if self.mlp is not None:
             h = self.mlp(h, False)
         return h
@@ -416,3 +417,230 @@ class DCI(nn.Module):
     def get_emb(self, graph):
         h = self.encoder(graph, corrupt=False)
         return h
+    
+
+class PrincipalAggregate(nn.Module):
+    def __init__(self, aggregators=['mean', 'max', 'min', 'std'], h_feats=32, act='ReLU', dropout=0.):
+        super().__init__()
+        self.aggregators = aggregators
+        self.agg_funcs = [getattr(self, f"agg_{agg}") for agg in aggregators]
+        self.linear = nn.Linear(len(self.agg_funcs)*h_feats, h_feats)
+        self.act =getattr(nn, act)()
+
+    def forward(self, mfg, feat):
+        h = [agg(mfg, feat) for agg in self.agg_funcs]
+        return self.act(self.linear(torch.cat(h, dim=1)))
+
+    def agg_mean(self, mfg, X):
+        mfg.srcdata['h'] = X
+        mfg.update_all(fn.copy_u('h', 'm'), fn.mean('m', 'h'))
+        return mfg.dstdata['h']
+
+    def agg_min(self, mfg, X):
+        mfg.srcdata['h'] = X
+        mfg.update_all(fn.copy_u('h', 'm'), fn.min('m', 'h'))
+        return mfg.dstdata['h']
+
+    def agg_max(self, mfg, X):
+        mfg.srcdata['h'] = X
+        mfg.update_all(fn.copy_u('h', 'm'), fn.max('m', 'h'))
+        return mfg.dstdata['h']
+
+    def agg_std(self, mfg, X):
+        diff = self.agg_mean(mfg, X ** 2) - self.agg_mean(mfg, X) ** 2
+        return torch.sqrt(F.relu(diff) + 1e-5)
+
+    def agg_sum(self, mfg, X):
+        mfg.srcdata['h'] = X
+        mfg.update_all(fn.copy_u('h', 'm'), fn.sum('m', 'h'))
+        return mfg.dstdata['h']
+
+    def __repr__(self):
+        return f"""PrincipalAggregate(
+            aggregators={self.aggregators}
+            linear={self.linear}
+        )"""
+
+
+class PNA(nn.Module):
+    def __init__(self, in_feats, h_feats=32, num_classes=2, num_layers=2, activation='ReLU', dropout_rate=0, **kwargs):
+        super().__init__()
+        self.layers = nn.ModuleList()
+        # self.layers.append(nn.Linear(in_feats, h_feats))
+        self.input_linear = nn.Linear(in_feats, h_feats)
+
+        self.act = getattr(nn, activation)()
+        self.output_linear = nn.Linear(h_feats, num_classes)
+        self.layers = nn.ModuleList()
+        self.dropout = nn.Dropout(dropout_rate) if dropout_rate > 0 else None
+
+        for i in range(0, num_layers):
+            self.layers.append(PrincipalAggregate(h_feats=h_feats, act=activation, dropout=dropout_rate))
+
+
+    def forward(self, graph):
+        h = graph.ndata['feature']
+        h = self.input_linear(h)
+        for i, layer in enumerate(self.layers):
+            if i != 0 and self.dropout:
+                h = self.dropout(h)
+            h = layer(graph, h)
+        h = self.output_linear(h)
+        return h
+
+
+class GATv2(nn.Module):
+    def __init__(self, in_feats, h_feats=16, num_classes=2, num_layers=2, num_heads=4, dropout_rate=0, residual=False, activation='ReLU', **kwargs):
+        super().__init__()
+        self.layers = nn.ModuleList()
+        self.input_linear = nn.Linear(in_feats, h_feats)
+        self.act = getattr(nn, activation)()
+        # self.layers.append(dglnn.GATv2Conv(in_feats, h_feats, num_heads))
+
+        for i in range(0, num_layers):
+            self.layers.append(dglnn.GATv2Conv(h_feats, h_feats//num_heads, num_heads, feat_drop=dropout_rate, attn_drop=dropout_rate, residual=residual, activation=self.act))
+        self.output_linear = nn.Linear(h_feats, num_classes)
+
+    def forward(self, graph):
+        h = graph.ndata['feature']
+        h = self.input_linear(h)
+        for i, layer in enumerate(self.layers):
+            h = layer(graph, h)
+            h = h.reshape([h.shape[0], -1])
+        h = self.output_linear(h)
+        return h
+
+
+class CAREConv(nn.Module):
+    def __init__(self,in_feats, h_feats, num_classes=2, activation=None, step_size=0.02, **kwargs):
+        super().__init__()
+        self.activation = activation
+        self.step_size = step_size
+        self.in_feats = in_feats
+        self.h_feats = h_feats
+        self.num_classes = num_classes
+        self.dist = {}
+
+        self.linear = nn.Linear(self.in_feats, self.h_feats)
+        self.MLP = nn.Linear(self.in_feats, self.num_classes)
+
+        self.p = {}
+        self.last_avg_dist = {}
+        self.f = {}
+        self.cvg = {}
+
+
+    def _calc_distance(self, edges):
+        # formula 2
+        d = torch.norm(torch.tanh(self.MLP(edges.src["h"]))
+            - torch.tanh(self.MLP(edges.dst["h"])), 1, 1,)
+        return {"d": d}
+
+    def _top_p_sampling(self, graph, p):
+        # Compute the number of neighbors to keep for each node
+        in_degrees = graph.in_degrees()
+        num_neigh = torch.ceil(in_degrees.float() * p).int()
+
+        # Fetch all edges and their distances
+        all_edges = graph.edges(form="eid")
+        dist = graph.edata["d"]
+
+        # Create a prefix sum array for in-degrees to use for indexing
+        prefix_sum = torch.cat([torch.tensor([0]).cuda(), in_degrees.cumsum(0)[:-1]])
+
+        # Get the edges for each node using advanced indexing
+        selected_edges = []
+        for i, node_deg in enumerate(num_neigh):
+            start_idx = prefix_sum[i]
+            end_idx = start_idx + node_deg
+            sorted_indices = torch.argsort(dist[start_idx:end_idx])[:node_deg]
+            selected_edges.append(all_edges[start_idx:end_idx][sorted_indices])
+        return torch.cat(selected_edges)
+
+    def forward(self, graph, epoch=0):
+        feat = graph.ndata['feature']
+        edges = graph.canonical_etypes
+        if epoch == 0:
+            for etype in edges:
+                self.p[etype] = 0.5
+                self.last_avg_dist[etype] = 0
+                self.f[etype] = []
+                self.cvg[etype] = False
+
+        with graph.local_scope():
+            graph.ndata["h"] = feat
+
+            hr = {}
+            for i, etype in enumerate(edges):
+                graph.apply_edges(self._calc_distance, etype=etype)
+                self.dist[etype] = graph.edges[etype].data["d"]
+                sampled_edges = self._top_p_sampling(graph[etype], self.p[etype])
+
+                # formula 8
+                graph.send_and_recv(
+                    sampled_edges,
+                    fn.copy_u("h", "m"),
+                    fn.mean("m", "h_%s" % etype[1]),
+                    etype=etype,
+                )
+                hr[etype] = graph.ndata["h_%s" % etype[1]]
+                if self.activation is not None:
+                    hr[etype] = self.activation(hr[etype])
+
+            # formula 9 using mean as inter-relation aggregator
+            p_tensor = (
+                torch.Tensor(list(self.p.values())).view(-1, 1, 1).to(graph.device)
+            )
+            h_homo = torch.sum(torch.stack(list(hr.values())) * p_tensor, dim=0)
+            h_homo += feat
+            if self.activation is not None:
+                h_homo = self.activation(h_homo)
+
+            return self.linear(h_homo)
+
+
+class GraphConsis(nn.Module):
+    def __init__(self, in_feats, num_classes=2, h_feats=64, edges=None, num_layers=1, activation=None, step_size=0.02, **kwargs):
+        super().__init__()
+        self.in_feats = in_feats
+        self.h_feats = h_feats
+        self.num_classes = num_classes
+        self.activation = None if activation is None else getattr(nn, activation)()
+        self.step_size = step_size
+        self.num_layers = num_layers
+        self.output_linear = nn.Linear(h_feats, num_classes)
+        self.layers = nn.ModuleList()
+        self.layers.append(          # Input layer
+            CAREConv(self.in_feats, self.num_classes, self.num_classes, activation=self.activation, step_size=self.step_size,))
+        for i in range(self.num_layers - 1):  # Hidden layers with n - 2 layers
+            self.layers.append(CAREConv(self.h_feats, self.h_feats, self.num_classes, activation=self.activation, step_size=self.step_size,))
+            # self.layers.append(   # Output layer
+                # CAREConv(self.h_feats, self.num_classes, self.num_classes, activation=self.activation, step_size=self.step_size,))
+
+    def forward(self, graph, epoch=0):            
+        for layer in self.layers:
+            feat = layer(graph, epoch)
+        return feat
+
+    def RLModule(self, graph, epoch, idx):
+        for layer in self.layers:
+            for etype in graph.canonical_etypes:
+                if not layer.cvg[etype]:
+                    # formula 5
+                    eid = graph.in_edges(idx, form='eid', etype=etype)
+                    avg_dist = torch.mean(layer.dist[etype][eid])
+
+                    # formula 6
+                    if layer.last_avg_dist[etype] < avg_dist:
+                        if layer.p[etype] - self.step_size > 0:
+                            layer.p[etype] -=   self.step_size
+                        layer.f[etype].append(-1)
+                    else:
+                        if layer.p[etype] + self.step_size <= 1:
+                            layer.p[etype] += self.step_size
+                        layer.f[etype].append(+1)
+                    layer.last_avg_dist[etype] = avg_dist
+
+                    # formula 7
+                    if epoch >= 9 and abs(sum(layer.f[etype][-10:])) <= 2:
+                        layer.cvg[etype] = True
