@@ -17,6 +17,7 @@ class Dataset:
         self.graph.ndata['train_mask'] = self.graph.ndata['train_masks'][:,trial_id]
         self.graph.ndata['val_mask'] = self.graph.ndata['val_masks'][:,trial_id]
         self.graph.ndata['test_mask'] = self.graph.ndata['test_masks'][:,trial_id]
+        print(self.graph.ndata['train_mask'].sum(), self.graph.ndata['val_mask'].sum(), self.graph.ndata['test_mask'].sum())
 
 
 model_detector_dict = {
@@ -26,6 +27,7 @@ model_detector_dict = {
     'RF': RFDetector,
     'XGBoost': XGBoostDetector,
     'XGBOD': XGBODDetector,
+    'NA': NAGNNDetector,
 
     'GCN': BaseGNNDetector,
     'SGC': BaseGNNDetector,
@@ -33,17 +35,20 @@ model_detector_dict = {
     'GraphSAGE': BaseGNNDetector,
     'GAT': BaseGNNDetector,
     'GT': BaseGNNDetector,
-    'ChebNet': BaseGNNDetector,
+    'PNA': BaseGNNDetector,
+    'BGNN': BGNNDetector,
 
     'KNNGCN': KNNGCNDetector,
     'GAS': GASDetector,
-    'PCGNN': PCGNNDetector,
-    'DCI': DCIDetector,
-    'GATSep': BaseGNNDetector,
     'BernNet': BaseGNNDetector,
     'AMNet': BaseGNNDetector,
     'BWGNN': BaseGNNDetector,
     'GHRN': GHRNDetector,
+    'GATSep': BaseGNNDetector,
+    'PCGNN': PCGNNDetector,
+    'DCI': DCIDetector,
+    'GraphConsis': BaseGNNDetector,
+    'CAREGNN': CAREGNNDetector,
 
     'RFGraph': RFGraphDetector,
     'XGBGraph': XGBGraphDetector,
@@ -161,7 +166,7 @@ param_space['BWGNN'] = {
     'num_layers': [1, 2, 3, 4],
     'lr': 10 ** np.linspace(-3, -1, 1000),
     'mlp_layers': [1, 2],
-    'activation': ['ReLU', 'LeakyReLU', 'Tanh']
+    'activation': ['ReLU', 'LeakyReLU', 'Tanh'],
 }
 
 param_space['GAS'] = {
@@ -284,6 +289,44 @@ param_space['DCI'] = {
     'h_feats': [16, 32, 64],
     'pretrain_epochs': [20, 50, 100],
     'num_cluster': list(range(2,31)),
+    'drop_rate': [0, 0.1, 0.2, 0.3],
+    'num_layers': [1, 2, 3],
+    'lr': 10 ** np.linspace(-3, -1, 1000),
+}
+
+param_space['BGNN'] = {
+    'depth': [4,5,6,7],
+    'iter_per_epoch': [2,5,10,20],
+    'gbdt_lr': 10 ** np.linspace(-2, -0.5, 1000),
+    'normalize_features': [True, False],
+    'h_feats': [16, 32, 64],
+    'num_layers': [1, 2, 3, 4],
+    'drop_rate': [0, 0.1, 0.2, 0.3],
+    'lr': 10 ** np.linspace(-3, -1, 1000),
+    'activation': ['ReLU', 'LeakyReLU', 'Tanh']
+}
+
+param_space['NA'] = {
+    'h_feats': [16, 32, 64],
+    'drop_rate': [0, 0.1, 0.2, 0.3],
+    'num_layers': [1, 2, 3, 4],
+    'lr': 10 ** np.linspace(-3, -1, 1000),
+    'mlp_layers': [1, 2],
+    'activation': ['ReLU', 'LeakyReLU', 'Tanh'],
+    'k': list(range(0, 51)),
+}
+
+param_space['PNA'] = {
+    'h_feats': [16, 32, 64],
+    'drop_rate': [0, 0.1, 0.2, 0.3],
+    'num_layers': [1, 2, 3, 4],
+    'lr': 10 ** np.linspace(-3, -1, 1000),
+    'activation': ['ReLU', 'LeakyReLU', 'Tanh'],
+}
+
+param_space['GATv2'] = {
+    'h_feats': [16, 32],
+    'num_heads': [1, 2, 4, 8],
     'drop_rate': [0, 0.1, 0.2, 0.3],
     'num_layers': [1, 2, 3],
     'lr': 10 ** np.linspace(-3, -1, 1000),
