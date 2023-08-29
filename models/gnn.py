@@ -806,7 +806,7 @@ class MultiRelationH2FDetectorLayer(nn.Module):
         
         
 class H2FD(nn.Module):
-    def __init__(self, in_feats, graph, n_layer=2, intra_dim=8, n_class=2, gamma1=0.4, gamma2=1.4, head=1, dropout_rate=0, **kwargs):
+    def __init__(self, in_feats, graph, n_layer=2, intra_dim=16, n_class=2, gamma1=1.2, gamma2=2, head=2, dropout_rate=0.1, **kwargs):
         super().__init__()
         self.in_feats = in_feats
         self.n_layer = n_layer 
