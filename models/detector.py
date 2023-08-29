@@ -682,7 +682,7 @@ class DCIDetector(BaseDetector):
                     break
         return test_score
     
-    
+
 class BGNNDetector(BaseDetector):
     def __init__(self, train_config, model_config, data):
         super().__init__(train_config, model_config, data)
@@ -831,4 +831,85 @@ class BGNNDetector(BaseDetector):
                 print('Nodes do not change anymore. Stopping...')
                 break
         
+        return test_score
+
+
+class H2FDetector(BaseDetector):
+    def __init__(self, train_config, model_config, data):
+        super().__init__(train_config, model_config, data)
+        gnn = globals()[model_config['model']]
+        model_config['in_feats'] = self.data.graph.ndata['feature'].shape[1]
+
+        g = self.source_graph
+        canon = g.canonical_etypes
+        new_g = dgl.heterograph({
+            canon[0]: g[canon[0]].edges(),
+            canon[1]: g[canon[1]].edges(),
+            canon[2]: g[canon[2]].edges(),
+            (canon[0][0], 'homo', canon[0][0]): dgl.to_homogeneous(g).edges()
+            })
+        homo_edges = new_g.edges(etype='homo')
+        for feat in g.ndata:
+            new_g.ndata[feat] = g.ndata[feat].clone()
+        
+        homo_labels, homo_train_mask = self.generate_edges_labels(homo_edges, new_g.ndata['label'].cpu().tolist(), new_g.ndata['train_mask'].nonzero().squeeze(1).tolist())
+
+        new_g.edges['homo'].data['label'] = homo_labels.cuda()
+        new_g.edges['homo'].data['train_mask'] = homo_train_mask.cuda()
+        for ntype in g.ntypes:
+            for key in g.ndata.keys():
+                new_g.nodes[ntype].data[key] = g.nodes[ntype].data[key].clone()
+        self.source_graph = new_g
+        model_config['graph'] = self.source_graph
+        self.model = gnn(**model_config).to(train_config['device'])
+
+    def generate_edges_labels(self, edges, labels, train_idx):
+        row, col = edges[0].cpu(), edges[1].cpu()
+        edge_labels = []
+        edge_train_mask = []
+        # print(labels, train_idx)
+        for i, j in zip(row, col):
+            i = i.item()
+            j = j.item()
+            if labels[i] == labels[j]:
+                edge_labels.append(1)
+            else:
+                edge_labels.append(-1)
+            if i in train_idx and j in train_idx:
+                edge_train_mask.append(1)
+            else:
+                edge_train_mask.append(0)
+        edge_labels = torch.Tensor(edge_labels).long()
+        edge_train_mask = torch.Tensor(edge_train_mask).bool()
+        return edge_labels, edge_train_mask
+
+    def train(self):
+        # add a new homo relation which is a combination of all other relations
+        # graph = self.source_graph
+
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_config['lr'])
+        train_labels, val_labels, test_labels = self.labels[self.train_mask], \
+                                                self.labels[self.val_mask], self.labels[self.test_mask]
+        for e in range(self.train_config['epochs']):
+            self.model.train()
+            loss, logits = self.model(self.source_graph)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            probs = logits.softmax(1)[:, 1]
+            val_score = self.eval(val_labels, probs[self.val_graph.ndata['val_mask']])
+            if val_score[self.train_config['metric']] > self.best_score:
+                if self.train_config['inductive']:
+                    loss, logits = self.model(self.source_graph)
+                    probs = logits.softmax(1)[:, 1]
+                self.patience_knt = 0
+                self.best_score = val_score[self.train_config['metric']]
+                test_score = self.eval(test_labels, probs[self.test_mask])
+                print('Epoch {}, Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, RecK {:.4f}, test AUC {:.4f}, PRC {:.4f}, RecK {:.4f}'.format(
+                    e, loss, val_score['AUROC'], val_score['AUPRC'], val_score['RecK'],
+                    test_score['AUROC'], test_score['AUPRC'], test_score['RecK']))
+            else:
+                self.patience_knt += 1
+                if self.patience_knt > self.train_config['patience']:
+                    break
         return test_score
