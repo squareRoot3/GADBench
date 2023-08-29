@@ -49,6 +49,7 @@ model_detector_dict = {
     'DCI': DCIDetector,
     'GraphConsis': BaseGNNDetector,
     'CAREGNN': CAREGNNDetector,
+    'H2FD': H2FDetector, 
 
     'RFGraph': RFGraphDetector,
     'XGBGraph': XGBGraphDetector,
