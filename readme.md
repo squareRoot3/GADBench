@@ -32,7 +32,7 @@ Due to the Copyright of [DGraph-Fin](https://dgraph.xinye.com/introduction) and 
 The script to preprocess DGraph-Fin and Elliptic can be found in `datasets/preprocess.inpynb`.
 After downloading, unzip all the files into a folder named dataset within the GADBench directory.
 
-Additionally, GADBench includes an example dataset named `reddit', which does not require manual downloading.
+Additionally, GADBench includes an example dataset `reddit', which does not require manual downloading.
 
 Benchmarking
 ---
@@ -75,4 +75,24 @@ python random_search.py --trial 100
 Please refer to the code for more information on additional options and parameters.
 
 
+### Dataset Information
+In the table below, we summarize all datasets in GADBench including the number of nodes and edges, the node feature dimension, the ratio of anomalous labels, the training ratio in the fully-supervised setting, the concept of relations, and the type of node features. Misc. indicates the node features are a combination of heterogeneous attributes, possibly including categorical, numerical, and temporal information, 
+
+| ID | Name             |    #Nodes |     #Edges | #Dim. | Anomaly | Train | Relation Concept     | Feature Type      |
+|----|------------------|----------:|-----------:|------:|--------:|------:|----------------------|-------------------|
+| 0  | [Reddit](https://github.com/pygod-team/data)           |    10,984 |    168,016 |    64 |   3.3\% |  40\% | Under Same Post      | Text Embedding    |
+| 1  | [Weibo](https://github.com/pygod-team/data)            |     8,405 |    407,963 |   400 |  10.3\% |  40\% | Under Same Hashtag   | Text Embedding    |
+| 2  | [Amazon](https://docs.dgl.ai/en/latest/generated/dgl.data.FraudAmazonDataset.html#dgl.data.FraudAmazonDataset)           |    11,944 |  4,398,392 |    25 |   9.5\% |  70\% | Review Correlation   | Misc. Information |
+| 3  | [YelpChi](https://docs.dgl.ai/en/latest/generated/dgl.data.FraudYelpDataset.html#dgl.data.FraudYelpDataset)          |    45,954 |  3,846,979 |    32 |  14.5\% |  70\% | Reviewer Interaction | Misc. Information |
+| 4  | [Tolokers](https://docs.dgl.ai/en/latest/generated/dgl.data.TolokersDataset.html)         |    11,758 |    519,000 |    10 |  21.8\% |  40\% | Work Collaboration   | Misc. Information |
+| 5  | [Questions](https://docs.dgl.ai/en/latest/generated/dgl.data.QuestionsDataset.html)        |    48,921 |    153,540 |   301 |   3.0\% |  52\% | Question Answering   | Text Embedding    |
+| 6  | [T-Finance](https://github.com/squareRoot3/Rethinking-Anomaly-Detection)        |    39,357 | 21,222,543 |    10 |   4.6\% |  50\% | Transaction Record   | Misc. Information |
+| 7  | [Elliptic](https://www.kaggle.com/datasets/ellipticco/elliptic-data-set)         |   203,769 |    234,355 |   166 |   9.8\% |  50\% | Payment Flow         | Misc. Information |
+| 8  | [DGraph-Fin](https://dgraph.xinye.com/)       | 3,700,550 |  4,300,999 |    17 |   1.3\% |  70\% | Loan Guarantor       | Misc. Information |
+| 9  | [T-Social](https://github.com/squareRoot3/Rethinking-Anomaly-Detection)         | 5,781,065 | 73,105,508 |    10 |   3.0\% |  40\% | Social Friendship    | Misc. Information |
+| 10 | Amazon (Hetero)  |    11,944 |  4,398,392 |    25 |   9.5\% |  70\% | Review Correlation   | Misc. Information |
+| 11 | YelpChi (Hetero) |    45,954 |  3,846,979 |    32 |  14.5\% |  70\% | Reviewer Interaction | Misc. Information |
+
+
+### Model Information
 
