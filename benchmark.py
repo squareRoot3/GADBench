@@ -46,7 +46,7 @@ if args.models is not None:
 
 for dataset in datasets:
     for metric in ['AUROC mean', 'AUROC std', 'AUPRC mean', 'AUPRC std',
-                   'F1_K mean', 'F1_K std', 'Time']:
+                   'Pre_K mean', 'RecK std', 'Time']:
         columns.append(dataset+'-'+metric)
 
 results = pandas.DataFrame(columns=columns)
@@ -81,7 +81,7 @@ for model in models:
             st = time.time()
             print(detector.model)
             test_score = detector.train()
-            auc_list.append(test_score['AUROC']), pre_list.append(test_score['AUPRC']), rec_list.append(test_score['F1_K'])
+            auc_list.append(test_score['AUROC']), pre_list.append(test_score['AUPRC']), rec_list.append(test_score['RecK'])
             ed = time.time()
             time_cost += ed - st
         del detector, data
@@ -90,8 +90,8 @@ for model in models:
         model_result[dataset_name+'-AUROC std'] = np.std(auc_list)
         model_result[dataset_name+'-AUPRC mean'] = np.mean(pre_list)
         model_result[dataset_name+'-AUPRC std'] = np.std(pre_list)
-        model_result[dataset_name+'-F1_K mean'] = np.mean(rec_list)
-        model_result[dataset_name+'-F1_K std'] = np.std(rec_list)
+        model_result[dataset_name+'-RecK mean'] = np.mean(rec_list)
+        model_result[dataset_name+'-RecK std'] = np.std(rec_list)
         model_result[dataset_name+'-Time'] = time_cost/args.trials
     model_result = pandas.DataFrame(model_result, index=[0])
     results = pandas.concat([results, model_result])
