@@ -93,6 +93,3 @@ In the table below, we summarize all datasets in GADBench including the number o
 | 10 | Amazon (Hetero)  |    11,944 |  4,398,392 |    25 |   9.5\% |  70\% | Review Correlation   | Misc. Information |
 | 11 | YelpChi (Hetero) |    45,954 |  3,846,979 |    32 |  14.5\% |  70\% | Reviewer Interaction | Misc. Information |
 
-
-### Model Information
-
