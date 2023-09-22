@@ -53,7 +53,7 @@ python benchmark.py --trial 10
 ```
 Benchmark severl models in the inductive setting
 ```
-python benchmark.py --datasets 5,8 --models GAT-GraphSAGE-XGBGraph
+python benchmark.py --datasets 5,8 --models GAT-GraphSAGE-XGBGraph --inductive 1
 ```
 Benchmark CAREGNN and GraphConsis on heterogeneous graph datasets 
 ```
