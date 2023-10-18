@@ -7,6 +7,8 @@ import dgl.nn.pytorch.conv as dglnn
 from torch import nn
 from scipy.special import comb
 import math
+import copy
+import numpy as np
 
 
 class PolyConv(nn.Module):
@@ -489,28 +491,6 @@ class PNA(nn.Module):
         return h
 
 
-class GATv2(nn.Module):
-    def __init__(self, in_feats, h_feats=16, num_classes=2, num_layers=2, num_heads=4, dropout_rate=0, residual=False, activation='ReLU', **kwargs):
-        super().__init__()
-        self.layers = nn.ModuleList()
-        self.input_linear = nn.Linear(in_feats, h_feats)
-        self.act = getattr(nn, activation)()
-        # self.layers.append(dglnn.GATv2Conv(in_feats, h_feats, num_heads))
-
-        for i in range(0, num_layers):
-            self.layers.append(dglnn.GATv2Conv(h_feats, h_feats//num_heads, num_heads, feat_drop=dropout_rate, attn_drop=dropout_rate, residual=residual, activation=self.act))
-        self.output_linear = nn.Linear(h_feats, num_classes)
-
-    def forward(self, graph):
-        h = graph.ndata['feature']
-        h = self.input_linear(h)
-        for i, layer in enumerate(self.layers):
-            h = layer(graph, h)
-            h = h.reshape([h.shape[0], -1])
-        h = self.output_linear(h)
-        return h
-
-
 class CAREConv(nn.Module):
     def __init__(self,in_feats, h_feats, num_classes=2, activation=None, step_size=0.02, **kwargs):
         super().__init__()
@@ -520,15 +500,12 @@ class CAREConv(nn.Module):
         self.h_feats = h_feats
         self.num_classes = num_classes
         self.dist = {}
-
         self.linear = nn.Linear(self.in_feats, self.h_feats)
         self.MLP = nn.Linear(self.in_feats, self.num_classes)
-
         self.p = {}
         self.last_avg_dist = {}
         self.f = {}
         self.cvg = {}
-
 
     def _calc_distance(self, edges):
         # formula 2

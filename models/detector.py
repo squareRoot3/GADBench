@@ -10,7 +10,6 @@ import dgl
 import numpy as np
 import pandas as pd
 import itertools
-from catboost import Pool, CatBoostClassifier, CatBoostRegressor, sum_models
 import psutil, os
 
 
@@ -686,6 +685,7 @@ class DCIDetector(BaseDetector):
 class BGNNDetector(BaseDetector):
     def __init__(self, train_config, model_config, data):
         super().__init__(train_config, model_config, data)
+        from catboost import Pool, CatBoostClassifier, CatBoostRegressor, sum_models
         # gnn = globals()[model_config['model']]
     
         self.depth = 6 if 'depth' not in model_config else model_config['depth']
@@ -800,12 +800,8 @@ class BGNNDetector(BaseDetector):
                 loss = F.cross_entropy(logits[self.train_mask], train_labels,
                                    weight=torch.tensor([1., self.weight], device=self.labels.device))
                 optimizer.zero_grad()
-                # if self.source_graph.ndata['feature'].isnan().any():
-                #     print('g')
                 loss.backward()
                 optimizer.step()
-                # if self.source_graph.ndata['feature'].isnan().any():
-                #     print('g')
 
             self.model.eval()
             logits = self.model(self.source_graph)
@@ -867,7 +863,6 @@ class H2FDetector(BaseDetector):
         row, col = edges[0].cpu(), edges[1].cpu()
         edge_labels = []
         edge_train_mask = []
-        # print(labels, train_idx)
         for i, j in zip(row, col):
             i = i.item()
             j = j.item()
@@ -884,9 +879,6 @@ class H2FDetector(BaseDetector):
         return edge_labels, edge_train_mask
 
     def train(self):
-        # add a new homo relation which is a combination of all other relations
-        # graph = self.source_graph
-
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_config['lr'])
         train_labels, val_labels, test_labels = self.labels[self.train_mask], \
                                                 self.labels[self.val_mask], self.labels[self.test_mask]

@@ -38,7 +38,7 @@ model_detector_dict = {
     'PNA': BaseGNNDetector,
     'BGNN': BGNNDetector,
 
-    'KNNGCN': KNNGCNDetector,
+    # 'KNNGCN': KNNGCNDetector,
     'GAS': GASDetector,
     'BernNet': BaseGNNDetector,
     'AMNet': BaseGNNDetector,
@@ -47,6 +47,7 @@ model_detector_dict = {
     'GATSep': BaseGNNDetector,
     'PCGNN': PCGNNDetector,
     'DCI': DCIDetector,
+
     'GraphConsis': BaseGNNDetector,
     'CAREGNN': CAREGNNDetector,
     'H2FD': H2FDetector, 
@@ -323,12 +324,4 @@ param_space['PNA'] = {
     'num_layers': [1, 2, 3, 4],
     'lr': 10 ** np.linspace(-3, -1, 1000),
     'activation': ['ReLU', 'LeakyReLU', 'Tanh'],
-}
-
-param_space['GATv2'] = {
-    'h_feats': [16, 32],
-    'num_heads': [1, 2, 4, 8],
-    'drop_rate': [0, 0.1, 0.2, 0.3],
-    'num_layers': [1, 2, 3],
-    'lr': 10 ** np.linspace(-3, -1, 1000),
 }
