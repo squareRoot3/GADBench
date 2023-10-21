@@ -54,7 +54,7 @@ file_id = None
 for model in models:
     model_result = {'name': model}
     for dataset_name in datasets:
-        if model in ['GraphConsis', 'H2FD'] and 'hetero' not in dataset_name:
+        if model in ['CAREGNN', 'H2FD'] and 'hetero' not in dataset_name:
             continue
         time_cost = 0
         train_config = {
