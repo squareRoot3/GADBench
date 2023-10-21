@@ -46,7 +46,7 @@ if args.models is not None:
 
 for dataset in datasets:
     for metric in ['AUROC mean', 'AUROC std', 'AUPRC mean', 'AUPRC std',
-                   'Pre_K mean', 'RecK std', 'Time']:
+                   'RecK mean', 'RecK std', 'Time']:
         columns.append(dataset+'-'+metric)
 
 results = pandas.DataFrame(columns=columns)
@@ -54,6 +54,8 @@ file_id = None
 for model in models:
     model_result = {'name': model}
     for dataset_name in datasets:
+        if model in ['GraphConsis', 'H2FD'] and 'hetero' not in dataset_name:
+            continue
         time_cost = 0
         train_config = {
             'device': 'cuda',

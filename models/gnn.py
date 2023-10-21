@@ -622,6 +622,7 @@ class GraphConsis(nn.Module):
                     if epoch >= 9 and abs(sum(layer.f[etype][-10:])) <= 2:
                         layer.cvg[etype] = True
 
+
 class H2FDetector_layer(nn.Module):
     def __init__(self, in_feats, h_feats, head, relation_aware, etype, dropout_rate, if_sum=False):
         super().__init__()

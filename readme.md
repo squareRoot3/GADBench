@@ -11,8 +11,7 @@ This is the official implementation of the following paper:
 Environment Setup
 -----------------
 
-Before you begin, ensure that you have Anaconda or Miniconda installed on your system.
-This guide assumes the use of a CUDA-enabled GPU.
+Before you begin, ensure that you have Anaconda or Miniconda installed on your system. This guide assumes that you have a CUDA-enabled GPU.
 
 ```shell
 # Create and activate a new Conda environment named 'GADBench'
@@ -27,27 +26,22 @@ conda install -c dglteam/label/cu117 dgl
 
 # Install additional dependencies
 conda install pip
-pip install xgboost pyod scikit-learn sympy pandas catboost
+pip install xgboost pyod scikit-learn sympy pandas catboost bidict openpyxl
 ```
 
 Dataset Preparation
 -------------------
 
-GADBench utilizes 10 different datasets.
-Download these datasets from the provided [google drive link](https://drive.google.com/file/d/1txzXrzwBBAOEATXmfKzMUUKaXh6PJeR1/view?usp=sharing).
-Due to the Copyright of [DGraph-Fin](https://dgraph.xinye.com/introduction) and [Elliptic](https://www.kaggle.com/datasets/ellipticco/elliptic-data-set), you need to download these datasets by yourself.
+GADBench utilizes 10 different datasets, which can be downloaded from this [google drive link](https://drive.google.com/file/d/1txzXrzwBBAOEATXmfKzMUUKaXh6PJeR1/view?usp=sharing). After downloading, unzip all the files into a folder named `datasets` within the GADBench directory. GADBench includes an example dataset `reddit`, which does not require manual downloading.
 
-The script to preprocess DGraph-Fin and Elliptic can be found in `datasets/preprocess.inpynb`.
-After downloading, unzip all the files into a folder named `datasets' within the GADBench directory.
-
-Additionally, GADBench includes an example dataset `reddit', which does not require manual downloading.
+Due to the Copyright of [DGraph-Fin](https://dgraph.xinye.com/introduction) and [Elliptic](https://www.kaggle.com/datasets/ellipticco/elliptic-data-set), you need to download these datasets by yourself. The script to preprocess DGraph-Fin and Elliptic can be found in `datasets/preprocess.inpynb`. You can also preprocess your own dataset according to the notebook.
 
 Benchmarking
 ------------
 
-### Use Default Hyperparameters
+### With Default Hyperparameters
 
-Benchmark the GCN model on the Reddit dataset with the fully-supervised setting (single trial).
+Benchmark the GCN model on the example Reddit dataset under the fully-supervised setting (single trial).
 
 ```
 python benchmark.py --trial 1 --datasets 0 --models GCN
@@ -59,25 +53,25 @@ Benchmark GIN and BWGNN on all 10 datasets in the semi-supervised setting (10 tr
 python benchmark.py --trial 10 --models GIN-BWGNN --semi_supervised 1 
 ```
 
-Benchmark 26 models on all 10 datasets in the fully-supervised setting (10 trials).
+Benchmark 25 models on all 10 datasets in the fully-supervised setting (10 trials).
 
 ```
 python benchmark.py --trial 10
 ```
 
-Benchmark severl models in the inductive setting
+Benchmark multiple models in the inductive setting
 
 ```
 python benchmark.py --datasets 5,8 --models GAT-GraphSAGE-XGBGraph --inductive 1
 ```
 
-Benchmark CAREGNN and GraphConsis on heterogeneous graph datasets
+Benchmark multiple models on heterogeneous graph datasets
 
 ```
-python benchmark.py --datasets 10,11 --models CAREGNN-GraphConsis
+python benchmark.py --datasets 10,11 --models GraphConsis-CAREGNN-H2FD
 ```
 
-### Use Optimal Hyperparameters through Random Search
+### With Optimal Hyperparameters through Random Search
 
 Perform a random search of hyperparameters for the GCN model on the Reddit dataset in the fully-supervised setting (100 trials).
 
@@ -91,13 +85,11 @@ Perform a random search of hyperparameters for all 26 models on all 10 datasets 
 python random_search.py --trial 100
 ```
 
-Please refer to the code for more information on additional options and parameters.
-
 ## Reference
 
 ### Dataset Information
 
-In the table below, we summarize all datasets in GADBench including the number of nodes and edges, the node feature dimension, the ratio of anomalous labels, the training ratio in the fully-supervised setting, the concept of relations, and the type of node features. Misc. indicates the node features are a combination of heterogeneous attributes, possibly including categorical, numerical, and temporal information,
+In the table below, we provide a summary of all datasets in GADBench, detailing the source, number of nodes, edges, and node feature dimensions. We also highlight the ratio of anomalous labels, the training ratio in a fully-supervised setting, the concept of relations, and the type of node features. Misc. signifies that the node features comprise a mix of various attributes, potentially including categorical, numerical, and temporal data.
 
 | ID | Name                                                                                                        |    #Nodes |     #Edges | #Dim. | Anomaly | Train | Relation Concept     | Feature Type      |
 | -- | ----------------------------------------------------------------------------------------------------------- | --------: | ---------: | ----: | ------: | ----: | -------------------- | ----------------- |
@@ -114,6 +106,47 @@ In the table below, we summarize all datasets in GADBench including the number o
 | 10 | Amazon (Hetero)                                                                                             |    11,944 |  4,398,392 |    25 |   9.5\% |  70\% | Review Correlation   | Misc. Information |
 | 11 | YelpChi (Hetero)                                                                                            |    45,954 |  3,846,979 |    32 |  14.5\% |  70\% | Reviewer Interaction | Misc. Information |
 
+### Model Information
+
+In the table below, we provide a brief overview of all models in GADBench, including their reference and our implementation notes.
+
+| Model                                                                                                  | Notes                                   |
+| ------------------------------------------------------------------------------------------------------ | --------------------------------------- |
+| [MLP]                                                                                                  |                                         |
+| [KNN](https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html)      | sklearn.neighbors.KNeighborsClassifier  |
+| [SVM](https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html#sklearn.svm.LinearSVC) | sklearn.svm.LinearSVC                   |
+| [RF](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html)      | sklearn.ensemble.RandomForestClassifier |
+| [XGBoost](https://xgboost.readthedocs.io/en/stable/python/python_api.html)                                | xgboost.XGBClassifier                   |
+| [XGBOD](https://pyod.readthedocs.io/en/latest/pyod.models.html#module-pyod.models.xgbod)                  | pyod.models.xgbod.XGBOD                 |
+| [NA]                                                                                                   |                                         |
+| GCN                                                                                                    |                                         |
+| SGC                                                                                                    |                                         |
+| GIN                                                                                                    |                                         |
+| GraphSAGE                                                                                              |                                         |
+| GAT                                                                                                    |                                         |
+| GT                                                                                                     |                                         |
+| PNA                                                                                                    |                                         |
+| BGNN                                                                                                   |                                         |
+| GAS                                                                                                    |                                         |
+| BernNet                                                                                                |                                         |
+| AMNet                                                                                                  |                                         |
+| BWGNN                                                                                                  |                                         |
+| GHRN                                                                                                   |                                         |
+| GATSep                                                                                                 |                                         |
+| PCGNN                                                                                                  |                                         |
+| DCI                                                                                                    |                                         |
+| RF-Graph                                                                                               |                                         |
+| XGB-Graph                                                                                              |                                         |
+
 ### Citation
 
 If you use this package and find it useful, please cite our paper using the following BibTeX. Thanks! :)
+
+```
+@article{tang2023gadbench,
+  title={GADBench: Revisiting and Benchmarking Supervised Graph Anomaly Detection},
+  author={Tang, Jianheng and Hua, Fengrui and Gao, Ziqi and Zhao, Peilin and Li, Jia},
+  journal={arXiv preprint arXiv:2306.12251},
+  year={2023}
+}
+```

@@ -1,3 +1,4 @@
 __pycache__/
 datasets/
 modes/__pycache__/
+catboost_info/

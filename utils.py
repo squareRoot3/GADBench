@@ -48,7 +48,7 @@ model_detector_dict = {
     'PCGNN': PCGNNDetector,
     'DCI': DCIDetector,
 
-    'GraphConsis': BaseGNNDetector,
+    # 'GraphConsis': BaseGNNDetector,
     'CAREGNN': CAREGNNDetector,
     'H2FD': H2FDetector, 
 

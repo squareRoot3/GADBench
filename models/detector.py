@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import itertools
 import psutil, os
+from catboost import Pool, CatBoostClassifier, CatBoostRegressor, sum_models
 
 
 class BaseDetector(object):
@@ -36,15 +37,14 @@ class BaseDetector(object):
         self.best_score = -1
         self.patience_knt = 0
         
-
     def train(self):
         pass
 
     def eval(self, labels, probs):
+        # The following code is used to record the memory usage
         # py_process = psutil.Process(os.getpid())
         # print(f"CPU Memory Usage: {py_process.memory_info().rss / (1024 ** 3)} GB")
         # print(f"GPU Memory Usage: {torch.cuda.memory_reserved() / (1024 ** 3)} GB")
-
         score = {}
         with torch.no_grad():
             if torch.is_tensor(labels):
@@ -174,9 +174,8 @@ class NAGNNDetector(BaseDetector):
                 self.model.eval()
                 logits = self.model(self.source_graph)
             probs = logits.softmax(1)[:, 1]
-            # neighbor smoothing via GIN
             if k > 0:
-                # print(knn_g)
+                # neighbor smoothing
                 probs = self.aggregate(knn_g, probs)
             
             val_score = self.eval(val_labels, probs[self.val_mask])
@@ -305,9 +304,7 @@ class XGBGraphDetector(BaseDetector):
             new_feat[self.train_mask] = gnn(self.source_graph.subgraph(self.train_mask))
             val_graph = self.source_graph.subgraph(self.train_mask+self.val_mask)
             new_feat[self.val_mask] = gnn(val_graph)[val_graph.ndata['val_mask']]
-            # feature[self.test_mask] = gnn(self.source_graph)[self.test_mask]
         self.source_graph.ndata['feature'] = new_feat
-
 
     def train(self):
         train_X = self.source_graph.ndata['feature'][self.train_mask].cpu().numpy()
@@ -330,7 +327,6 @@ class XGBGraphDetector(BaseDetector):
 class RFDetector(BaseDetector):
     def __init__(self, train_config, model_config, data):
         super().__init__(train_config, model_config, data)
-        # eval_metric = roc_auc_score if train_config['metric'] == "AUROC" else average_precision_score
         n_estimators = 100 if 'n_estimators' not in model_config else model_config['n_estimators']
         criterion = 'gini' if 'criterion' not in model_config else model_config['criterion']
         max_samples = None if 'max_samples' not in model_config else model_config['max_samples']
@@ -370,7 +366,6 @@ class RFGraphDetector(BaseDetector):
             new_feat[self.train_mask] = gnn(self.source_graph.subgraph(self.train_mask))
             val_graph = self.source_graph.subgraph(self.train_mask+self.val_mask)
             new_feat[self.val_mask] = gnn(val_graph)[val_graph.ndata['val_mask']]
-            # feature[self.test_mask] = gnn(self.source_graph)[self.test_mask]
         self.source_graph.ndata['feature'] = new_feat
 
     def train(self):
@@ -443,7 +438,6 @@ class GASDetector(BaseDetector):
 class KNNGCNDetector(BaseDetector):
     def __init__(self, train_config, model_config, data):
         super().__init__(train_config, model_config, data)
-        # gnn = globals()[model_config['model']]
         model_config['in_feats'] = self.data.graph.ndata['feature'].shape[1]
         self.model = GCN(**model_config).to(train_config['device'])
 
@@ -685,9 +679,7 @@ class DCIDetector(BaseDetector):
 class BGNNDetector(BaseDetector):
     def __init__(self, train_config, model_config, data):
         super().__init__(train_config, model_config, data)
-        from catboost import Pool, CatBoostClassifier, CatBoostRegressor, sum_models
         # gnn = globals()[model_config['model']]
-    
         self.depth = 6 if 'depth' not in model_config else model_config['depth']
         self.iter_per_epoch = 10 if 'iter_per_epoch' not in model_config else model_config['iter_per_epoch']
         self.gbdt_alpha = 1 if 'gbdt_alpha' not in model_config else model_config['gbdt_alpha']
@@ -715,11 +707,9 @@ class BGNNDetector(BaseDetector):
             max_vals, _ = torch.max(encoded_X[self.train_mask], dim=0, keepdim=True)
             encoded_X[self.train_mask] = (encoded_X[self.train_mask] - min_vals) / (max_vals - min_vals)
             encoded_X[self.val_mask | self.test_mask] = (encoded_X[self.val_mask | self.test_mask] - min_vals) / (max_vals - min_vals)
-
             if encoded_X.isnan().any():
                 row, col = torch.where(encoded_X.isnan())
                 encoded_X[row, col] = self.source_graph.ndata['feature'][row, col]
-            
             if encoded_X.isinf().any():
                 row, col = torch.where(encoded_X.isinf())
                 encoded_X[row, col] = self.source_graph.ndata['feature'][row, col]
@@ -728,9 +718,7 @@ class BGNNDetector(BaseDetector):
         if not self.only_gbdt:
             node_features.data[:, :-2] = self.source_graph.ndata['feature'].clone()
         self.source_graph.ndata['feature'] = node_features
-
         return gbdt_X_train, gbdt_y_train, raw_X, encoded_X
-
 
     def train_gbdt(self, gbdt_X_train, gbdt_y_train, epoch):
         pool = Pool(gbdt_X_train, gbdt_y_train)
@@ -758,7 +746,6 @@ class BGNNDetector(BaseDetector):
                 self.gbdt_model = sum_models([self.gbdt_model, epoch_gbdt_model], weights=[1, self.gbdt_alpha])
                 # self.gbdt_model = self.append_gbdt_model(epoch_gbdt_model, weights=[1, self.gbdt_alpha])
 
-
     def update_node_features(self, X, encoded_X):
         predictions = self.base_gbdt.predict_proba(X)
         # predictions = self.base_gbdt.predict(X, prediction_type='RawFormulaVal')
@@ -770,15 +757,9 @@ class BGNNDetector(BaseDetector):
         node_features = self.source_graph.ndata['feature']
         if not self.only_gbdt:
             if self.train_non_gbdt:
-                # predictions = np.append(node_features.detach().cpu().data[:, :-self.out_dim], predictions,
-                #                         axis=1)  # append updated X to prediction
                 predictions = torch.concat((node_features.detach().data[:, :-2], predictions), dim=1)
             else:
-                # predictions = np.append(encoded_X, predictions, axis=1)  # append X to prediction
                 predictions = torch.concat((encoded_X, predictions), dim=1)
-
-        # predictions = torch.from_numpy(predictions).to(self.device)
-
         node_features.data = predictions.float().data
 
     def train(self):
@@ -826,7 +807,6 @@ class BGNNDetector(BaseDetector):
             if np.isclose(gbdt_y_train.sum(), 0.):
                 print('Nodes do not change anymore. Stopping...')
                 break
-        
         return test_score
 
 
