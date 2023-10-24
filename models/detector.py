@@ -68,8 +68,7 @@ class BaseGNNDetector(BaseDetector):
 
     def train(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_config['lr'])
-        train_labels, val_labels, test_labels = self.labels[self.train_mask], \
-                                                self.labels[self.val_mask], self.labels[self.test_mask]
+        train_labels, val_labels, test_labels = self.labels[self.train_mask], self.labels[self.val_mask], self.labels[self.test_mask]
         for e in range(self.train_config['epochs']):
             self.model.train()
             logits = self.model(self.train_graph)
@@ -292,6 +291,42 @@ class XGBoostDetector(BaseDetector):
         return test_score
 
 
+class XGBNADetector(BaseDetector):
+    def __init__(self, train_config, model_config, data):
+        super().__init__(train_config, model_config, data)
+        import xgboost as xgb
+        eval_metric = roc_auc_score if train_config['metric'] == "AUROC" else average_precision_score
+        self.model = xgb.XGBClassifier(tree_method='gpu_hist', eval_metric=eval_metric, **model_config)
+        self.aggregate = dglnn.GINConv(None, activation=None, init_eps=0,
+                                 aggregator_type='mean').to(self.train_config['device'])
+
+    def train(self):
+        k = 5 if 'k' not in self.model_config else self.model_config['k']
+        dist = 'cosine' if 'dist' not in self.model_config else self.model_config['dist']
+        feat = self.data.graph.ndata['feature'].to(self.train_config['device'])
+        if k > 0:
+            knn_graph = KNNGraph(k)
+            knn_g = knn_graph(feat, algorithm="bruteforce-sharemem", dist=dist)
+
+        train_X = self.source_graph.ndata['feature'][self.train_mask].cpu().numpy()
+        train_y = self.source_graph.ndata['label'][self.train_mask].cpu().numpy()
+        val_X = self.source_graph.ndata['feature'][self.val_mask].cpu().numpy()
+        val_y = self.source_graph.ndata['label'][self.val_mask].cpu().numpy()
+        test_y = self.source_graph.ndata['label'][self.test_mask].cpu().numpy()
+        weights = np.where(train_y == 0, 1, self.weight)
+
+        self.model.fit(train_X, train_y, sample_weight=weights, eval_set=[(val_X, val_y)], verbose=False)
+        X = self.source_graph.ndata['feature'].cpu().numpy()
+        probs = torch.tensor(self.model.predict_proba(X)[:, 1]).cuda()
+        probs = self.aggregate(knn_g, probs)
+        pred_val_y = probs[self.val_mask]
+        pred_y = probs[self.test_mask]
+        val_score = self.eval(val_y, pred_val_y)
+        self.best_score = val_score[self.train_config['metric']]
+        test_score = self.eval(test_y, pred_y)
+        return test_score
+
+
 class XGBGraphDetector(BaseDetector):
     def __init__(self, train_config, model_config, data):
         super().__init__(train_config, model_config, data)
@@ -448,7 +483,6 @@ class KNNGCNDetector(BaseDetector):
         knn_graph = KNNGraph(k)
         knn_g = knn_graph(feat, algorithm="bruteforce-sharemem", dist=dist)
         new_g = dgl.merge([knn_g, self.source_graph])
-        print(new_g)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_config['lr'])
         train_labels, val_labels, test_labels = self.labels[self.train_mask], \
                                                 self.labels[self.val_mask], self.labels[self.test_mask]

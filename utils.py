@@ -28,6 +28,7 @@ model_detector_dict = {
     'XGBoost': XGBoostDetector,
     'XGBOD': XGBODDetector,
     'NA': NAGNNDetector,
+    'XGBNA': XGBNADetector,
 
     'GCN': BaseGNNDetector,
     'SGC': BaseGNNDetector,
@@ -201,9 +202,8 @@ param_space['KNNGCN'] = {
 
 param_space['XGBoost'] = {
     'n_estimators': list(range(10, 201)),
-    'eta': 0.5 * 10 ** np.linspace(-1, 0, 1000), #[0.1, 0.2, 0.3, 0.4, 0.5],
+    'eta': 0.5 * 10 ** np.linspace(-1, 0, 1000),
     'lambda': [0, 1, 10],
-    # 'alpha': [0, 0.5, 1],
     'subsample': [0.5, 0.75, 1]
 }
 
@@ -309,12 +309,10 @@ param_space['BGNN'] = {
 }
 
 param_space['NA'] = {
-    'h_feats': [16, 32, 64],
-    'drop_rate': [0, 0.1, 0.2, 0.3],
-    'num_layers': [1, 2, 3, 4],
-    'lr': 10 ** np.linspace(-3, -1, 1000),
-    'mlp_layers': [1, 2],
-    'activation': ['ReLU', 'LeakyReLU', 'Tanh'],
+    'n_estimators': list(range(10, 201)),
+    'eta': 0.5 * 10 ** np.linspace(-1, 0, 1000),
+    'lambda': [0, 1, 10],
+    'subsample': [0.5, 0.75, 1],
     'k': list(range(0, 51)),
 }
 

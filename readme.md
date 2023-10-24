@@ -50,13 +50,13 @@ python benchmark.py --trial 1 --datasets 0 --models GCN
 Benchmark GIN and BWGNN on all 10 datasets in the semi-supervised setting (10 trials).
 
 ```
-python benchmark.py --trial 10 --models GIN-BWGNN --semi_supervised 1 
+python benchmark.py --trial 10 --datasets 0-9 --models GIN-BWGNN --semi_supervised 1 
 ```
 
-Benchmark 25 models on all 10 datasets in the fully-supervised setting (10 trials).
+Benchmark 25 GAD models on all 10 datasets in the fully-supervised setting (10 trials). It requires an Nvidia GPU with more than 48GB memory.
 
 ```
-python benchmark.py --trial 10
+python benchmark.py --trial 10 --datasets 0-9 
 ```
 
 Benchmark multiple models in the inductive setting
@@ -112,13 +112,13 @@ In the table below, we provide a brief overview of all models in GADBench, inclu
 
 | Model                                                                                                  | Notes                                   |
 | ------------------------------------------------------------------------------------------------------ | --------------------------------------- |
-| [MLP]                                                                                                  |                                         |
+| MLP                                                                                                    |                                         |
 | [KNN](https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html)      | sklearn.neighbors.KNeighborsClassifier  |
 | [SVM](https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html#sklearn.svm.LinearSVC) | sklearn.svm.LinearSVC                   |
 | [RF](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html)      | sklearn.ensemble.RandomForestClassifier |
 | [XGBoost](https://xgboost.readthedocs.io/en/stable/python/python_api.html)                                | xgboost.XGBClassifier                   |
 | [XGBOD](https://pyod.readthedocs.io/en/latest/pyod.models.html#module-pyod.models.xgbod)                  | pyod.models.xgbod.XGBOD                 |
-| [NA]                                                                                                   |                                         |
+| [NA]()                                                                                                    |                                         |
 | GCN                                                                                                    |                                         |
 | SGC                                                                                                    |                                         |
 | GIN                                                                                                    |                                         |
@@ -135,8 +135,10 @@ In the table below, we provide a brief overview of all models in GADBench, inclu
 | GATSep                                                                                                 |                                         |
 | PCGNN                                                                                                  |                                         |
 | DCI                                                                                                    |                                         |
-| RF-Graph                                                                                               |                                         |
-| XGB-Graph                                                                                              |                                         |
+| CAREGNN                                                                                                |                                         |
+| H2FD                                                                                                   |                                         |
+| RFGraph                                                                                                |                                         |
+| XGBGraph                                                                                               |                                         |
 
 ### Citation
 
