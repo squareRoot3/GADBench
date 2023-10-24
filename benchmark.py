@@ -68,7 +68,7 @@ for model in models:
         model_config = {'model': model, 'lr': 0.01, 'drop_rate': 0}
         if dataset_name == 'tsocial':
             model_config['h_feats'] = 16
-            # if model in ['GHRN', 'KNNGCN', 'AMNet', 'GT', 'GAT', 'GATv2', 'GATSep', 'PNA']:   # require > 24G GPU memory
+            # if model in ['GHRN', 'KNNGCN', 'AMNet', 'GT', 'GAT', 'GATv2', 'GATSep', 'PNA']:   # require more than 24G GPU memory
                 # continue
 
         auc_list, pre_list, rec_list = [], [], []

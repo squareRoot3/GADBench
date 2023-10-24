@@ -27,8 +27,7 @@ model_detector_dict = {
     'RF': RFDetector,
     'XGBoost': XGBoostDetector,
     'XGBOD': XGBODDetector,
-    'NA': NAGNNDetector,
-    'XGBNA': XGBNADetector,
+    'NA': XGBNADetector,
 
     'GCN': BaseGNNDetector,
     'SGC': BaseGNNDetector,

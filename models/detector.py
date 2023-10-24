@@ -318,7 +318,8 @@ class XGBNADetector(BaseDetector):
         self.model.fit(train_X, train_y, sample_weight=weights, eval_set=[(val_X, val_y)], verbose=False)
         X = self.source_graph.ndata['feature'].cpu().numpy()
         probs = torch.tensor(self.model.predict_proba(X)[:, 1]).cuda()
-        probs = self.aggregate(knn_g, probs)
+        if k > 0:
+            probs = self.aggregate(knn_g, probs)
         pred_val_y = probs[self.val_mask]
         pred_y = probs[self.test_mask]
         val_score = self.eval(val_y, pred_val_y)
