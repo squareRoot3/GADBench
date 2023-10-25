@@ -21,6 +21,7 @@ class Dataset:
 
 
 model_detector_dict = {
+    # Classic Methods
     'MLP': BaseGNNDetector,
     'KNN': KNNDetector,
     'SVM': SVMDetector,
@@ -29,6 +30,7 @@ model_detector_dict = {
     'XGBOD': XGBODDetector,
     'NA': XGBNADetector,
 
+    # Standard GNNs
     'GCN': BaseGNNDetector,
     'SGC': BaseGNNDetector,
     'GIN': BaseGNNDetector,
@@ -38,7 +40,7 @@ model_detector_dict = {
     'PNA': BaseGNNDetector,
     'BGNN': BGNNDetector,
 
-    # 'KNNGCN': KNNGCNDetector,
+    # Specialized GNNs
     'GAS': GASDetector,
     'BernNet': BaseGNNDetector,
     'AMNet': BaseGNNDetector,
@@ -48,10 +50,13 @@ model_detector_dict = {
     'PCGNN': PCGNNDetector,
     'DCI': DCIDetector,
 
-    # 'GraphConsis': BaseGNNDetector,
+    # Heterogeneous GNNs
+    'RGCN': HeteroGNNDetector,
+    'HGT': HeteroGNNDetector,
     'CAREGNN': CAREGNNDetector,
     'H2FD': H2FDetector, 
 
+    # Tree Ensembles with Neighbor Aggregation
     'RFGraph': RFGraphDetector,
     'XGBGraph': XGBGraphDetector,
 }

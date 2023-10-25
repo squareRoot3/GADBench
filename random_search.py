@@ -7,6 +7,7 @@ import warnings
 warnings.filterwarnings("ignore")
 seed_list = list(range(3407, 10000, 10))
 
+
 def set_seed(seed=3407):
     os.environ['PYTHONHASHSEED'] = str(seed)
     random.seed(seed)
@@ -75,29 +76,31 @@ for model in models:
 
         for t in range(args.trials):
             print("Dataset {}, Model {}, Trial {}, Time Cost {:.2f}".format(dataset_name, model, t, time_cost))
-            if time_cost > 7200: # Stop after 2 hours
+            if time_cost > 7200:  # 86400 Stop after 1 day
                 break
-            model_config = sample_param(model, dataset_name, t)
-            detector = model_detector_dict[model](train_config, model_config, data)
-            train_config['seed'] = seed_list[t]
-            st = time.time()
-            print("model_config: ", model_config)
-            test_score = detector.train()
-            if detector.best_score > best_val_score:
-                print("****current best score****")
-                best_val_score = detector.best_score
-                best_model_config = deepcopy(model_config)
-                best_troc, best_tprc, best_treck = test_score['AUROC'], test_score['AUPRC'], test_score['RecK']
-            ed = time.time()
-            time_cost += ed - st
-            print("Current Val Best:{:.4f}; Test AUC:{:.4f}, PRC:{:.4f}, RECK:{:.4f}".format(
-                detector.best_score, test_score['AUROC'], test_score['AUPRC'], test_score['RecK']))
-
+            try:
+                model_config = sample_param(model, dataset_name, t)
+                detector = model_detector_dict[model](train_config, model_config, data)
+                train_config['seed'] = seed_list[t]
+                st = time.time()
+                print("model_config: ", model_config)
+                test_score = detector.train()
+                if detector.best_score > best_val_score:
+                    print("****current best score****")
+                    best_val_score = detector.best_score
+                    best_model_config = deepcopy(model_config)
+                    best_troc, best_tprc, best_treck = test_score['AUROC'], test_score['AUPRC'], test_score['RecK']
+                ed = time.time()
+                time_cost += ed - st
+                print("Current Val Best:{:.4f}; Test AUC:{:.4f}, PRC:{:.4f}, RECK:{:.4f}".format(
+                    detector.best_score, test_score['AUROC'], test_score['AUPRC'], test_score['RecK']))
+            except:
+                torch.cuda.empty_cache()
         print("best_model_config:", best_model_config)
         best_model_configs[model][dataset_name] = deepcopy(best_model_config)
         model_result[dataset_name+'-AUROC'] = best_troc
         model_result[dataset_name+'-AUPRC'] = best_tprc
-        model_result[dataset_name+'-RECK'] = best_treck
+        model_result[dataset_name+'-RecK'] = best_treck
         model_result[dataset_name+'-Time'] = time_cost/(t+1)
     model_result = pandas.DataFrame(model_result, index=[0])
     results = pandas.concat([results, model_result])

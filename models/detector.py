@@ -98,6 +98,47 @@ class BaseGNNDetector(BaseDetector):
                     break
         return test_score
 
+# RGCN, HGT
+class HeteroGNNDetector(BaseDetector):
+    def __init__(self, train_config, model_config, data):
+        super().__init__(train_config, model_config, data)
+        hgnn = globals()[model_config['model']]
+        model_config['in_feats'] = self.data.graph.ndata['feature'].shape[1]
+        model_config['etypes'] = self.source_graph.canonical_etypes
+        self.model = hgnn(**model_config).to(train_config['device'])
+        
+    def train(self):
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_config['lr'])
+        train_labels, val_labels, test_labels = self.labels[self.train_mask], self.labels[self.val_mask], self.labels[self.test_mask]
+        for e in range(self.train_config['epochs']):
+            self.model.train()
+            logits = self.model(self.train_graph)
+            loss = F.cross_entropy(logits[self.train_graph.ndata['train_mask']], train_labels,
+                                   weight=torch.tensor([1., self.weight], device=self.labels.device))
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            if self.model_config['drop_rate'] > 0 or self.train_config['inductive']:
+                self.model.eval()
+                logits = self.model(self.val_graph)
+            probs = logits.softmax(1)[:, 1]
+            val_score = self.eval(val_labels, probs[self.val_graph.ndata['val_mask']])
+            if val_score[self.train_config['metric']] > self.best_score:
+                if self.train_config['inductive']:
+                    logits = self.model(self.source_graph)
+                    probs = logits.softmax(1)[:, 1]
+                self.patience_knt = 0
+                self.best_score = val_score[self.train_config['metric']]
+                test_score = self.eval(test_labels, probs[self.test_mask])
+                print('Epoch {}, Loss {:.4f}, Val AUC {:.4f}, PRC {:.4f}, RecK {:.4f}, test AUC {:.4f}, PRC {:.4f}, RecK {:.4f}'.format(
+                    e, loss, val_score['AUROC'], val_score['AUPRC'], val_score['RecK'],
+                    test_score['AUROC'], test_score['AUPRC'], test_score['RecK']))
+            else:
+                self.patience_knt += 1
+                if self.patience_knt > self.train_config['patience']:
+                    break
+        return test_score
+
 
 class CAREGNNDetector(BaseDetector):
     def __init__(self, train_config, model_config, data):
