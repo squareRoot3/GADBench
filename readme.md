@@ -68,7 +68,7 @@ python benchmark.py --datasets 5,8 --models GAT-GraphSAGE-XGBGraph --inductive 1
 Benchmark multiple models on heterogeneous graph datasets
 
 ```
-python benchmark.py --datasets 10,11 --models GraphConsis-CAREGNN-H2FD
+python benchmark.py --datasets 10,11 --models RGCN-HGT-CAREGNN-H2FD
 ```
 
 ### With Optimal Hyperparameters through Random Search
@@ -105,40 +105,6 @@ In the table below, we provide a summary of all datasets in GADBench, detailing 
 | 9  | [T-Social](https://github.com/squareRoot3/Rethinking-Anomaly-Detection)                                        | 5,781,065 | 73,105,508 |    10 |   3.0\% |  40\% | Social Friendship    | Misc. Information |
 | 10 | Amazon (Hetero)                                                                                             |    11,944 |  4,398,392 |    25 |   9.5\% |  70\% | Review Correlation   | Misc. Information |
 | 11 | YelpChi (Hetero)                                                                                            |    45,954 |  3,846,979 |    32 |  14.5\% |  70\% | Reviewer Interaction | Misc. Information |
-
-### Model Information
-
-In the table below, we provide a brief overview of all models in GADBench, including their reference and our implementation notes.
-
-| Model                                                                                                  | Notes                                   |
-| ------------------------------------------------------------------------------------------------------ | --------------------------------------- |
-| MLP                                                                                                    |                                         |
-| [KNN](https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html)      | sklearn.neighbors.KNeighborsClassifier  |
-| [SVM](https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html#sklearn.svm.LinearSVC) | sklearn.svm.LinearSVC                   |
-| [RF](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html)      | sklearn.ensemble.RandomForestClassifier |
-| [XGBoost](https://xgboost.readthedocs.io/en/stable/python/python_api.html)                                | xgboost.XGBClassifier                   |
-| [XGBOD](https://pyod.readthedocs.io/en/latest/pyod.models.html#module-pyod.models.xgbod)                  | pyod.models.xgbod.XGBOD                 |
-| [NA]()                                                                                                    |                                         |
-| GCN                                                                                                    |                                         |
-| SGC                                                                                                    |                                         |
-| GIN                                                                                                    |                                         |
-| GraphSAGE                                                                                              |                                         |
-| GAT                                                                                                    |                                         |
-| GT                                                                                                     |                                         |
-| PNA                                                                                                    |                                         |
-| BGNN                                                                                                   |                                         |
-| GAS                                                                                                    |                                         |
-| BernNet                                                                                                |                                         |
-| AMNet                                                                                                  |                                         |
-| BWGNN                                                                                                  |                                         |
-| GHRN                                                                                                   |                                         |
-| GATSep                                                                                                 |                                         |
-| PCGNN                                                                                                  |                                         |
-| DCI                                                                                                    |                                         |
-| CAREGNN                                                                                                |                                         |
-| H2FD                                                                                                   |                                         |
-| RFGraph                                                                                                |                                         |
-| XGBGraph                                                                                               |                                         |
 
 ### Citation
 

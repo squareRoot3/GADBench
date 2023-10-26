@@ -41,10 +41,6 @@ class BaseDetector(object):
         pass
 
     def eval(self, labels, probs):
-        # The following code is used to record the memory usage
-        # py_process = psutil.Process(os.getpid())
-        # print(f"CPU Memory Usage: {py_process.memory_info().rss / (1024 ** 3)} GB")
-        # print(f"GPU Memory Usage: {torch.cuda.memory_reserved() / (1024 ** 3)} GB")
         score = {}
         with torch.no_grad():
             if torch.is_tensor(labels):
@@ -77,6 +73,10 @@ class BaseGNNDetector(BaseDetector):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            # The following code is used to record the memory usage
+            # py_process = psutil.Process(os.getpid())
+            # print(f"CPU Memory Usage: {py_process.memory_info().rss / (1024 ** 3)} GB")
+            # print(f"GPU Memory Usage: {torch.cuda.memory_reserved() / (1024 ** 3)} GB")
             if self.model_config['drop_rate'] > 0 or self.train_config['inductive']:
                 self.model.eval()
                 logits = self.model(self.val_graph)
@@ -144,7 +144,7 @@ class CAREGNNDetector(BaseDetector):
     def __init__(self, train_config, model_config, data):
         super().__init__(train_config, model_config, data)
         model_config['in_feats'] = self.data.graph.ndata['feature'].shape[1]
-        self.model = GraphConsis(**model_config).to(train_config['device'])
+        self.model = CAREGNN(**model_config).to(train_config['device'])
 
     def train(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_config['lr'])
@@ -185,7 +185,6 @@ class CAREGNNDetector(BaseDetector):
 class NAGNNDetector(BaseDetector):
     def __init__(self, train_config, model_config, data):
         super().__init__(train_config, model_config, data)
-        # gnn = globals()[model_config['model']]
         model_config['in_feats'] = self.data.graph.ndata['feature'].shape[1]
         self.model = BWGNN(**model_config).to(train_config['device'])
         self.aggregate = dglnn.GINConv(None, activation=None, init_eps=0,
@@ -623,7 +622,7 @@ class PCGNNDetector(BaseDetector):
         model_config['in_feats'] = self.data.graph.ndata['feature'].shape[1]
         self.model = ChebNet(**model_config).to(train_config['device'])
 
-    def preprocess(self, del_ratio=0.7, add_ratio=0.3, k_max=5, dist='cosine', **kwargs):
+    def process(self, del_ratio=0.7, add_ratio=0.3, k_max=5, dist='cosine', **kwargs):
         graph = self.source_graph.long()
         features = graph.ndata['feature']
         edges = graph.adj().coalesce()
@@ -656,7 +655,7 @@ class PCGNNDetector(BaseDetector):
         return graph
 
     def train(self):
-        graph = self.preprocess(**self.model_config)
+        graph = self.process(**self.model_config)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_config['lr'])
         train_labels, val_labels, test_labels = self.labels[self.train_mask], \
                                                 self.labels[self.val_mask], self.labels[self.test_mask]

@@ -235,15 +235,14 @@ class RGCN(nn.Module):
 
 
 class HGT(nn.Module):
-    def __init__(self, in_feats, h_feats=32, num_heads=1, num_classes=2, num_layers=2, mlp_layers=1, dropout_rate=0, activation='ReLU', etypes=None, **kwargs):
+    def __init__(self, in_feats, h_feats=32, num_heads=1, num_classes=2, num_layers=2, mlp_layers=1, dropout_rate=0.2, activation='ReLU', etypes=None, **kwargs):
         super().__init__()
         self.h_feats = h_feats
         self.layers = nn.ModuleList()
         self.act = getattr(nn, activation)()
-        self.layers.append(dgl.nn.HGTConv(in_feats, h_feats // num_heads,
-                    num_heads, 1, len(etypes), dropout=dropout_rate))
+        self.input_linear = nn.Linear(in_feats, h_feats)
         self.type = etypes[0][0]
-        for i in range(num_layers-1):
+        for i in range(num_layers):
             self.layers.append(dgl.nn.HGTConv(h_feats, h_feats // num_heads,
                     num_heads, 1, len(etypes), dropout=dropout_rate))
         self.mlp = MLP(h_feats, h_feats, num_classes, mlp_layers, dropout_rate)
@@ -254,8 +253,10 @@ class HGT(nn.Module):
             self.graph = dgl.to_homogeneous(graph, ndata=['feature'])
         h = self.graph.ndata['feature']
         graph = self.graph
+        h = self.input_linear(h)
         for i, layer in enumerate(self.layers):
             h = layer(graph, h, graph.ndata[dgl.NTYPE], graph.edata[dgl.ETYPE])
+            h = self.act(h)
         h = self.mlp(h, False)
         # print( graph.ndata[dgl.NTYPE], graph.edata[dgl.ETYPE])
         return h
@@ -635,7 +636,7 @@ class CAREConv(nn.Module):
             return self.linear(h_homo)
 
 
-class GraphConsis(nn.Module):
+class CAREGNN(nn.Module):
     def __init__(self, in_feats, num_classes=2, h_feats=64, edges=None, num_layers=1, activation=None, step_size=0.02, **kwargs):
         super().__init__()
         self.in_feats = in_feats
