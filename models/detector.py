@@ -888,7 +888,6 @@ class BGNNDetector(BaseDetector):
 class H2FDetector(BaseDetector):
     def __init__(self, train_config, model_config, data):
         super().__init__(train_config, model_config, data)
-        gnn = globals()[model_config['model']]
         model_config['in_feats'] = self.data.graph.ndata['feature'].shape[1]
 
         g = self.source_graph
@@ -910,9 +909,11 @@ class H2FDetector(BaseDetector):
         for ntype in g.ntypes:
             for key in g.ndata.keys():
                 new_g.nodes[ntype].data[key] = g.nodes[ntype].data[key].clone()
+        # dgl.save_graphs('new_amazon', [new_g])
+        # new_g = dgl.load_graphs('new_amazon')[0][0].to(train_config['device'])
         self.source_graph = new_g
         model_config['graph'] = self.source_graph
-        self.model = gnn(**model_config).to(train_config['device'])
+        self.model = H2FD(**model_config).to(train_config['device'])
 
     def generate_edges_labels(self, edges, labels, train_idx):
         row, col = edges[0].cpu(), edges[1].cpu()

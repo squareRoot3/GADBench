@@ -767,7 +767,6 @@ class MultiRelationH2FDetectorLayer(nn.Module):
     def __init__(self, in_feats, h_feats, head, dataset, dropout_rate, if_sum=False):
         super().__init__()
         self.relation = copy.deepcopy(dataset.etypes)
-        # self.relation.remove('net_upu')
         self.n_relation = len(self.relation)
         if not if_sum:
             self.liner = nn.Linear(self.n_relation*h_feats*head, h_feats*head)
@@ -844,7 +843,7 @@ class MultiRelationH2FDetectorLayer(nn.Module):
         
         
 class H2FD(nn.Module):
-    def __init__(self, in_feats, graph, n_layer=2, intra_dim=16, n_class=2, gamma1=1.2, gamma2=2, head=2, dropout_rate=0.1, **kwargs):
+    def __init__(self, in_feats, graph, n_layer=1, intra_dim=16, n_class=2, gamma1=1.2, gamma2=2, head=2, dropout_rate=0.1, **kwargs):
         super().__init__()
         self.in_feats = in_feats
         self.n_layer = n_layer 
