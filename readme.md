@@ -111,10 +111,13 @@ In the table below, we provide a summary of all datasets in GADBench, detailing 
 If you use this package and find it useful, please cite our paper using the following BibTeX. Thanks! :)
 
 ```
-@article{tang2023gadbench,
-  title={GADBench: Revisiting and Benchmarking Supervised Graph Anomaly Detection},
-  author={Tang, Jianheng and Hua, Fengrui and Gao, Ziqi and Zhao, Peilin and Li, Jia},
-  journal={arXiv preprint arXiv:2306.12251},
-  year={2023}
+@inproceedings{tang2023gadbench,
+ author = {Tang, Jianheng and Hua, Fengrui and Gao, Ziqi and Zhao, Peilin and Li, Jia},
+ booktitle = {Advances in Neural Information Processing Systems},
+ pages = {29628--29653},
+ title = {GADBench: Revisiting and Benchmarking Supervised Graph Anomaly Detection},
+ url = {https://proceedings.neurips.cc/paper_files/paper/2023/file/5eaafd67434a4cfb1cf829722c65f184-Paper-Datasets_and_Benchmarks.pdf},
+ volume = {36},
+ year = {2023}
 }
 ```
