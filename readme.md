@@ -8,7 +8,7 @@ This is the official implementation of the following paper:
 >
 > NeurIPS 2023 Datasets and Benchmarks Track
 
-Environment Setup 
+Environment Setup
 -----------------
 
 Before you begin, ensure that you have Anaconda or Miniconda installed on your system. This guide assumes that you have a CUDA-enabled GPU.
